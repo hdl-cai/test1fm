@@ -1,0 +1,466 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ================================================
+   FLOCKMATE DESIGN SYSTEM — COOL EMERALD V2
+   Light mode = crisp cool emerald agricultural theme
+   Dark mode = deep emerald night theme
+   ================================================ */
+
+/* LIGHT MODE */
+.light {
+  color-scheme: light;
+
+  /* Base */
+  --background: #EEF2F0;
+  --foreground: #111C17;
+  --card: #F7FAF8;
+  --card-foreground: #111C17;
+  --popover: #F7FAF8;
+  --popover-foreground: #111C17;
+
+  /* Brand */
+  --primary: #2E7D5A;
+  --primary-foreground: #ffffff;
+  --secondary: #E2EAE6;
+  --secondary-foreground: #111C17;
+
+  /* Status */
+  --success: #2E7D5A;
+  --success-foreground: #ffffff;
+  --danger: #C0392B;
+  --danger-foreground: #ffffff;
+  --warning: #C47A0A;
+  --warning-foreground: #ffffff;
+  --info: #2A7A8A;
+  --info-foreground: #ffffff;
+  --purple: #7C3AED;
+  --purple-foreground: #ffffff;
+
+  /* Muted */
+  --muted: #E2EAE6;
+  --muted-foreground: #7A9186;
+  --accent: #E2EAE6;
+  --accent-foreground: #111C17;
+  --row-hover: #DCE8E2;
+  --sidebar-hover: #D4E3DC;
+
+  /* Destructive */
+  --destructive: #C0392B;
+  --destructive-foreground: #ffffff;
+
+  /* Borders & Inputs */
+  --border: #C4D4CC;
+  --input: #E2EAE6;
+  --ring: #2E7D5A;
+
+  /* Charts */
+  --chart-1: #C47A0A;
+  --chart-2: #2E7D5A;
+  --chart-3: #C0392B;
+  --chart-4: #2A7A8A;
+  --chart-5: #7A9186;
+
+  /* Radius */
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: #EEF2F0;
+  --sidebar-foreground: #111C17;
+  --sidebar-primary: #2E7D5A;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #E2EAE6;
+  --sidebar-accent-foreground: #111C17;
+  --sidebar-border: #C4D4CC;
+  --sidebar-ring: #2E7D5A;
+
+  /* Elevation */
+  --card-shadow: 0 1px 3px 0 rgb(42 31 16 / 0.08),
+    0 1px 2px -1px rgb(42 31 16 / 0.06);
+}
+
+/* DARK MODE (default) */
+.dark,
+:root:not(.light) {
+  color-scheme: dark;
+
+  /* Base */
+  --background: #0D1612;
+  --foreground: #DCE8E2;
+  --card: #141F1A;
+  --card-foreground: #DCE8E2;
+  --popover: #141F1A;
+  --popover-foreground: #DCE8E2;
+
+  /* Brand */
+  --primary: #3DA370;
+  --primary-foreground: #ffffff;
+  --secondary: #2E7D5A;
+  --secondary-foreground: #ffffff;
+
+  /* Status */
+  --success: #3DA370;
+  --success-foreground: #ffffff;
+  --danger: #E05A48;
+  --danger-foreground: #ffffff;
+  --warning: #D4820A;
+  --warning-foreground: #ffffff;
+  --info: #2A7A8A;
+  --info-foreground: #ffffff;
+  --purple: #8B5CF6;
+  --purple-foreground: #ffffff;
+
+  /* Muted */
+  --muted: #1F2E28;
+  --muted-foreground: #8AADA0;
+  --accent: #192420;
+  --accent-foreground: #DCE8E2;
+  --row-hover: #1A2820;
+  --sidebar-hover: #1A2820;
+
+  /* Destructive */
+  --destructive: #E05A48;
+  --destructive-foreground: #ffffff;
+
+  /* Borders & Inputs */
+  --border: #1F2E28;
+  --input: #192420;
+  --ring: #3DA370;
+
+  /* Charts */
+  --chart-1: #D4820A;
+  --chart-2: #3DA370;
+  --chart-3: #E05A48;
+  --chart-4: #2A7A8A;
+  --chart-5: #8AADA0;
+
+  /* Radius */
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: #090E0B;
+  --sidebar-foreground: #DCE8E2;
+  --sidebar-primary: #3DA370;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #141F1A;
+  --sidebar-accent-foreground: #DCE8E2;
+  --sidebar-border: #1F2E28;
+  --sidebar-ring: #3DA370;
+}
+
+@theme {
+  --font-sans: 'Inter Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', monospace;
+
+  --color-primary: var(--primary);
+  --color-primary-dark: #1f8f5e;
+  --color-background-dark: var(--background);
+  --color-surface-dark: var(--card);
+  --color-surface-darker: var(--sidebar);
+  --color-surface-hover: var(--accent);
+  --color-border-dark: var(--border);
+  --color-text-main: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-row-hover: var(--row-hover);
+  --color-sidebar-hover: var(--sidebar-hover);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --text-micro: 11px;
+  --text-micro--line-height: 1.3;
+  --text-caption: 12px;
+  --text-caption--line-height: 1.4;
+  --text-body: 13px;
+  --text-body--line-height: 1.6;
+  --text-section-title: 11px;
+  --text-section-title--line-height: 1.3;
+  --text-page-title: 22px;
+  --text-page-title--line-height: 1.2;
+  --text-stat: 28px;
+  --text-stat--line-height: 1.1;
+  --text-stat-lg: 32px;
+  --text-stat-lg--line-height: 1.0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply font-sans bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  /* ── MONOSPACE DATA CLASS ── */
+  .font-data {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── GLASS UTILITIES ── */
+  .glass-panel {
+    @apply bg-card/60 backdrop-blur-xl border border-border/40 shadow-2xl;
+  }
+
+  .bg-glass {
+    @apply bg-card/40 backdrop-blur-lg border border-border/30 shadow-sm transition-colors transition-shadow transition-[width] duration-300;
+  }
+
+  .bg-glass-hover {
+    @apply hover:bg-card/60 hover:backdrop-blur-xl hover:border-border/60 hover:shadow-md;
+  }
+
+  /* ── SCROLLBAR ── */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted/20 rounded-full hover:bg-muted/40 transition-colors;
+  }
+
+  /* ── ANIMATIONS ── */
+  .animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ── TABLE SYSTEM ── */
+  table {
+    font-size: 13px;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  thead th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    padding: 10px 12px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody td {
+    font-size: 13px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  tbody tr:hover td {
+    background-color: var(--row-hover) !important;
+  }
+
+  /* Secondary helper text inside table cells */
+  td .cell-sub {
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+
+  /* ── BADGE SYSTEM (inside table cells) ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .badge-success {
+    background-color: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+  }
+
+  .badge-warning {
+    background-color: color-mix(in srgb, var(--warning) 15%, transparent);
+    color: var(--warning);
+  }
+
+  .badge-danger {
+    background-color: color-mix(in srgb, var(--danger) 15%, transparent);
+    color: var(--danger);
+  }
+
+  .badge-info {
+    background-color: color-mix(in srgb, var(--info) 15%, transparent);
+    color: var(--info);
+  }
+
+  .badge-muted {
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+  }
+
+  /* Pill variant (rounded-full) for metric types */
+  .badge-pill {
+    border-radius: 9999px;
+  }
+
+  /* ── CONDENSED FONT FOR TABLE DATA ── */
+  .font-condensed {
+    font-variation-settings: 'wdth' 85;
+  }
+}
+
+/* ── LEAFLET OVERRIDES ── */
+.leaflet-control-zoom {
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background-color: var(--card) !important;
+  color: var(--muted-foreground) !important;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  transition: all 0.2s ease !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background-color: var(--accent) !important;
+  color: var(--foreground) !important;
+}
+
+.leaflet-control-attribution {
+  background-color: rgb(from var(--card-foreground) r g b / 0.05) !important;
+  backdrop-filter: blur(8px);
+  padding: 2px 8px !important;
+  border-top-left-radius: 8px;
+  font-size: 9px !important;
+  color: var(--muted-foreground) !important;
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+
+.leaflet-control-attribution a {
+  color: var(--primary) !important;
+  text-decoration: none;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border);
+}
+
+/* ── GLOBAL HOVER FIXES ── */
+tr:hover td,
+tr:hover {
+  background-color: var(--row-hover) !important;
+}
+
+.hover\:bg-sidebar-hover:hover {
+  background-color: var(--sidebar-hover) !important;
+}
+
+tr {
+  transition: background-color 0.2s ease;
+}
