@@ -5,8 +5,31 @@
 
 import { create } from 'zustand';
 import type { ProductionCycle } from '@/types';
+import { mapCycleRowToProductionCycle } from '@/lib/data-adapters';
 import { supabase } from '@/lib/supabase';
 import { differenceInDays } from 'date-fns';
+import { useAuthStore } from './useAuthStore';
+
+function getCycleSummary(cycles: ProductionCycle[]) {
+  const activeCycles = cycles.filter(c => c.status === 'active');
+  const completedCycles = cycles.filter(c => c.status === 'completed');
+  const totalActiveBirds = activeCycles.reduce((sum, c) => sum + c.birdCount, 0);
+  const cyclesWithFCR = cycles.filter(c => c.fcr !== undefined && c.fcr > 0);
+  const averageFCR = cyclesWithFCR.length > 0
+    ? cyclesWithFCR.reduce((sum, c) => sum + (c.fcr || 0), 0) / cyclesWithFCR.length
+    : 0;
+  const averageMortalityRate = activeCycles.length > 0
+    ? activeCycles.reduce((sum, c) => sum + c.mortalityRate, 0) / activeCycles.length
+    : 0;
+
+  return {
+    activeCyclesCount: activeCycles.length,
+    completedCyclesCount: completedCycles.length,
+    totalActiveBirds,
+    averageFCR,
+    averageMortalityRate,
+  };
+}
 
 export interface CyclesState {
   // Data
@@ -59,60 +82,25 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
         .select(`
           *,
           farms (name),
-          performance_metrics (fcr_to_date, livability_pct)
+          performance_metrics (fcr_to_date, livability_pct, created_at)
         `)
         .eq('org_id', orgId)
         .range(0, 199);
 
       if (error) throw error;
 
-       const mappedCycles: ProductionCycle[] = (data || []).map(row => {
-        const metrics = row.performance_metrics as any[];
-        // Sort metrics by created_at descending to get the latest one
-        const sortedMetrics = metrics ? [...metrics].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ) : [];
-        const latest = sortedMetrics.length > 0 ? sortedMetrics[0] : null;
-        
-        return {
-          id: row.id,
-          farmId: row.farm_id,
-          growerId: row.grower_id,
-          batchName: row.batch_name,
-          startDate: new Date(row.start_date),
-          expectedEndDate: new Date(row.anticipated_harvest_date || row.start_date),
-          birdCount: row.initial_birds,
-          status: row.status as any,
-          mortalityRate: latest ? 100 - (latest.livability_pct * 100) : 0,
-          feedConsumed: 0,
-          currentFeedStock: 0,
-          fcr: latest?.fcr_to_date || 0,
-        };
-      });
+       const mappedCycles: ProductionCycle[] = (data || []).map(mapCycleRowToProductionCycle);
 
-      // Calculate aggregate metrics
-      const activeCycles = mappedCycles.filter(c => c.status === 'active');
-      const completedCycles = mappedCycles.filter(c => c.status === 'completed');
-      const totalActiveBirds = activeCycles.reduce((sum, c) => sum + c.birdCount, 0);
-      const cyclesWithFCR = mappedCycles.filter(c => c.fcr !== undefined && c.fcr > 0);
-      const averageFCR = cyclesWithFCR.length > 0 
-        ? cyclesWithFCR.reduce((sum, c) => sum + (c.fcr || 0), 0) / cyclesWithFCR.length 
-        : 0;
-      const averageMortalityRate = activeCycles.length > 0
-        ? activeCycles.reduce((sum, c) => sum + c.mortalityRate, 0) / activeCycles.length
-        : 0;
+      const summary = getCycleSummary(mappedCycles);
 
       set({ 
         cycles: mappedCycles, 
         isLoading: false,
-        activeCyclesCount: activeCycles.length,
-        completedCyclesCount: completedCycles.length,
-        totalActiveBirds,
-        averageFCR,
-        averageMortalityRate
+        ...summary
       });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch production cycles.';
+      set({ error: message, isLoading: false });
     }
   },
 
@@ -131,10 +119,16 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
   createCycle: async ({ batchName, farmId, growerId, birdCount, startDate, anticipatedHarvestDate, orgId }) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
+      const authOrgId = useAuthStore.getState().user?.orgId;
+      const resolvedOrgId = authOrgId ?? orgId;
+      if (!resolvedOrgId) {
+        throw new Error('Organization context is required to create a production cycle.');
+      }
+
+      const { data: createdCycle, error } = await supabase
         .from('production_cycles')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           farm_id: farmId,
           grower_id: growerId,
           batch_name: batchName,
@@ -142,14 +136,24 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
           start_date: startDate,
           anticipated_harvest_date: anticipatedHarvestDate,
           status: 'active',
-        });
+        })
+        .select(`
+          *,
+          performance_metrics (fcr_to_date, livability_pct, created_at)
+        `)
+        .single();
 
       if (error) throw error;
 
-      // Re-fetch cycles to get the server-generated ID and updated list
-      await get().fetchCycles(orgId);
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const nextCycles = [...get().cycles, mapCycleRowToProductionCycle(createdCycle)];
+      set({
+        cycles: nextCycles,
+        isLoading: false,
+        ...getCycleSummary(nextCycles),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create production cycle.';
+      set({ error: message, isLoading: false });
       throw err;
     }
   },

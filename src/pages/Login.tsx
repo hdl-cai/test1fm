@@ -260,8 +260,10 @@ export default function Login() {
 
     setIsSubmitting(true);
     try {
-      await signIn(email, password);
-      navigate('/', { replace: true });
+      const didSignIn = await signIn(email, password);
+      if (didSignIn) {
+        navigate('/', { replace: true });
+      }
     } catch {
       // error is set in the store
     } finally {

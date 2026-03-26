@@ -57,35 +57,29 @@ export default function Inventory() {
   const [isDeliveriesLoading, setIsDeliveriesLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (user?.orgId) {
-      fetchCycles(user.orgId);
-      loadCatalogue();
-      loadDeliveries();
-    }
-  }, [user?.orgId, fetchCycles]);
+  const orgId = user?.orgId;
 
-  const loadCatalogue = async () => {
-    if (!user?.orgId) return;
+  const loadCatalogue = React.useCallback(async () => {
+    if (!orgId) return;
     setIsCatalogueLoading(true);
     const { data } = await supabase
       .from('inventory_items')
       .select('*, inventory_categories (name)')
-      .eq('org_id', user.orgId)
+      .eq('org_id', orgId)
       .is('deleted_at', null)
       .order('name');
     setCatalogueItems(data || []);
     setIsCatalogueLoading(false);
-  };
+  }, [orgId]);
 
-  const loadDeliveries = async () => {
-    if (!user?.orgId) return;
+  const loadDeliveries = React.useCallback(async () => {
+    if (!orgId) return;
     setIsDeliveriesLoading(true);
     setLoadError(null);
     const { data, error: fetchError } = await supabase
       .from('delivered_inputs')
       .select('*')
-      .eq('org_id', user.orgId)
+      .eq('org_id', orgId)
       .is('deleted_at', null)
       .order('delivery_date', { ascending: false });
     if (fetchError) {
@@ -93,7 +87,15 @@ export default function Inventory() {
     }
     setDeliveries(data || []);
     setIsDeliveriesLoading(false);
-  };
+  }, [orgId]);
+
+  React.useEffect(() => {
+    if (orgId) {
+      fetchCycles(orgId);
+      loadCatalogue();
+      loadDeliveries();
+    }
+  }, [fetchCycles, loadCatalogue, loadDeliveries, orgId]);
 
   const handleArchiveItem = async (itemId: string) => {
     const { error: archiveError } = await supabase

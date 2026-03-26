@@ -1,17 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
+import type {
+  CycleDetailsRow,
+  DeliveredInputRow,
+  HealthRecordWithVeterinarianRow,
+  HarvestSaleRow,
+  VaccinationScheduleRow,
+} from '@/lib/data-adapters';
 import { supabase } from '@/lib/supabase';
+import type { Tables } from '@/types/supabase';
+
+type CycleLatestMetric = NonNullable<CycleDetailsRow['performance_metrics']>[number];
+
+type CycleDetailsState = CycleDetailsRow & {
+  latestMetrics: CycleLatestMetric | null;
+};
+
+type CycleExpenseWithCategoryRow = Tables<'cycle_expenses'> & {
+  expense_categories: { name: string } | null;
+};
 
 export function useCycleDetails(cycleId: string | undefined) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cycle, setCycle] = useState<any>(null);
-  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
-  const [healthRecords, setHealthRecords] = useState<any[]>([]);
-  const [vaccinationSchedules, setVaccinationSchedules] = useState<any[]>([]);
-  const [harvestRecords, setHarvestRecords] = useState<any[]>([]);
-  const [salesRecords, setSalesRecords] = useState<any[]>([]);
-  const [deliveredInputs, setDeliveredInputs] = useState<any[]>([]);
-  const [cycleExpenses, setCycleExpenses] = useState<any[]>([]);
+  const [cycle, setCycle] = useState<CycleDetailsState | null>(null);
+  const [dailyLogs, setDailyLogs] = useState<Tables<'daily_logs'>[]>([]);
+  const [healthRecords, setHealthRecords] = useState<HealthRecordWithVeterinarianRow[]>([]);
+  const [vaccinationSchedules, setVaccinationSchedules] = useState<VaccinationScheduleRow[]>([]);
+  const [harvestRecords, setHarvestRecords] = useState<Tables<'harvest_logs'>[]>([]);
+  const [salesRecords, setSalesRecords] = useState<HarvestSaleRow[]>([]);
+  const [deliveredInputs, setDeliveredInputs] = useState<DeliveredInputRow[]>([]);
+  const [cycleExpenses, setCycleExpenses] = useState<CycleExpenseWithCategoryRow[]>([]);
 
   const fetchDetails = useCallback(async () => {
     if (!cycleId) return;
@@ -32,87 +50,88 @@ export function useCycleDetails(cycleId: string | undefined) {
         .single();
 
       if (cycleError) throw cycleError;
-      
-      const metrics = (cycleData as any).performance_metrics as any[];
+
+      const typedCycleData = cycleData as CycleDetailsRow;
+      const metrics = typedCycleData.performance_metrics || [];
       const sortedMetrics = metrics ? [...metrics].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ) : [];
       const latestMetrics = sortedMetrics.length > 0 ? sortedMetrics[0] : null;
       
       setCycle({
-        ...cycleData,
+        ...typedCycleData,
         latestMetrics
       });
 
-      // 2. Fetch daily logs
-      const { data: logs, error: logsError } = await supabase
-        .from('daily_logs')
-        .select('*')
-        .eq('cycle_id', cycleId)
-        .order('log_date', { ascending: false });
+      const [
+        { data: logs, error: logsError },
+        { data: vaccs, error: vaccError },
+        { data: health, error: healthError },
+        { data: harvests, error: harvestError },
+        { data: sales, error: salesError },
+        { data: inputs, error: inputsError },
+        { data: expenses, error: expensesError },
+      ] = await Promise.all([
+        supabase
+          .from('daily_logs')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .order('log_date', { ascending: false }),
+        supabase
+          .from('vaccination_schedules')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .order('scheduled_date', { ascending: true }),
+        supabase
+          .from('health_records')
+          .select(`
+            *,
+            veterinarian:profiles!health_records_veterinarian_id_fkey (first_name, last_name)
+          `)
+          .eq('cycle_id', cycleId)
+          .order('record_date', { ascending: false }),
+        supabase
+          .from('harvest_logs')
+          .select('*')
+          .eq('cycle_id', cycleId),
+        supabase
+          .from('harvest_sales')
+          .select('*')
+          .eq('cycle_id', cycleId),
+        supabase
+          .from('delivered_inputs')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .order('delivery_date', { ascending: true }),
+        supabase
+          .from('cycle_expenses')
+          .select(`
+            *,
+            expense_categories (name)
+          `)
+          .eq('cycle_id', cycleId)
+          .order('created_at', { ascending: false }),
+      ]);
 
-       if (logsError) throw logsError;
+      if (logsError) throw logsError;
+      if (vaccError) throw vaccError;
+      if (healthError) throw healthError;
+      if (harvestError) throw harvestError;
+      if (salesError) throw salesError;
+      if (inputsError) throw inputsError;
+      if (expensesError) throw expensesError;
+
       setDailyLogs(logs || []);
- 
-      // 3. Fetch vaccinations
-      const { data: vaccs, error: vaccError } = await supabase
-        .from('vaccination_schedules')
-        .select('*')
-        .eq('cycle_id', cycleId)
-        .order('scheduled_date', { ascending: true });
+      setVaccinationSchedules(vaccs || []);
+      setHealthRecords((health as HealthRecordWithVeterinarianRow[]) || []);
+      setHarvestRecords(harvests || []);
+      setSalesRecords(sales || []);
+      setDeliveredInputs(inputs || []);
+      setCycleExpenses((expenses as CycleExpenseWithCategoryRow[]) || []);
 
-      if (!vaccError) setVaccinationSchedules(vaccs || []);
-
-      // 4. Fetch health records
-      const { data: health, error: healthError } = await supabase
-        .from('health_records')
-        .select(`
-          *,
-          profiles (first_name, last_name)
-        `)
-        .eq('cycle_id', cycleId)
-        .order('recorded_at', { ascending: false });
-
-      if (!healthError) setHealthRecords(health || []);
-      // 5. Fetch harvest
-      const { data: harvests, error: harvestError } = await supabase
-        .from('harvest_logs')
-        .select('*')
-        .eq('cycle_id', cycleId);
-      
-      if (!harvestError) setHarvestRecords(harvests || []);
-
-      // 6. Fetch sales
-      const { data: sales, error: salesError } = await supabase
-        .from('harvest_sales')
-        .select('*')
-        .eq('cycle_id', cycleId);
-      
-      if (!salesError) setSalesRecords(sales || []);
-
-      // 7. Fetch delivered inputs (for feed/supply reconciliation)
-      const { data: inputs, error: inputsError } = await supabase
-        .from('delivered_inputs')
-        .select('*')
-        .eq('cycle_id', cycleId)
-        .order('delivery_date', { ascending: true });
-
-      if (!inputsError) setDeliveredInputs(inputs || []);
-
-      // 8. Fetch cycle expenses
-      const { data: expenses, error: expensesError } = await supabase
-        .from('cycle_expenses')
-        .select(`
-          *,
-          expense_categories (name)
-        `)
-        .eq('cycle_id', cycleId)
-        .order('created_at', { ascending: false });
-
-      if (!expensesError) setCycleExpenses(expenses || []);
-
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch cycle details.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

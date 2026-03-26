@@ -117,6 +117,12 @@ interface HealthTrendData extends ChartDataPoint {
   mortality: number;
 }
 
+const HEALTH_TREND_DATA: HealthTrendData[] = Array.from({ length: 12 }, (_, i) => ({
+  name: `Week ${i + 1}`,
+  healthy: 92 + (i % 4),
+  mortality: 2 + (i % 3),
+}));
+
 // Main Health Page Component
 export default function Health() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,13 +168,7 @@ export default function Health() {
   }, [activeCycles, selectedCycleId]);
 
   // Mock trend data for chart
-  const healthTrendData = React.useMemo<HealthTrendData[]>(() => {
-    return Array.from({ length: 12 }, (_, i) => ({
-      name: `Week ${i + 1}`,
-      healthy: 90 + Math.random() * 8,
-      mortality: 2 + Math.random() * 5,
-    }));
-  }, []);
+  const healthTrendData = React.useMemo<HealthTrendData[]>(() => HEALTH_TREND_DATA, []);
 
   const paginatedRecords = React.useMemo(() => {
     return [...records]

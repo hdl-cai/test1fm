@@ -2,9 +2,10 @@ import * as React from 'react';
 import { MetricCard, DataTablePagination, StatusBadge } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
+import type { HarvestSaleRow } from '@/lib/data-adapters';
 
 interface SalesTabProps {
-    records: any[];
+    records: HarvestSaleRow[];
 }
 
 export function SalesTab({ records }: SalesTabProps) {
@@ -46,8 +47,7 @@ export function SalesTab({ records }: SalesTabProps) {
                     title="Payment Status"
                     value="Settled"
                     subtitle="Revenue collection"
-                    variant="status"
-                    status="success"
+                    statusBadge={{ label: 'Settled', type: 'success' }}
                 />
             </div>
 

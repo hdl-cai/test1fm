@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 interface DeliveryLogSheetProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const ITEM_TYPES = [
 ];
 
 export function DeliveryLogSheet({ isOpen, onClose, cycleId, farmId, orgId, onSaved }: DeliveryLogSheetProps) {
+  const authOrgId = useAuthStore((state) => state.user?.orgId);
   const [formData, setFormData] = React.useState({
     itemName: '',
     itemType: 'feed',
@@ -45,10 +47,15 @@ export function DeliveryLogSheet({ isOpen, onClose, cycleId, farmId, orgId, onSa
     setSubmitError(null);
 
     try {
+      const resolvedOrgId = authOrgId ?? orgId;
+      if (!resolvedOrgId) {
+        throw new Error('Organization context is required to save a delivery log.');
+      }
+
       const { error } = await supabase
         .from('delivered_inputs')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           cycle_id: cycleId,
           farm_id: farmId,
           item_name: formData.itemName,
@@ -73,8 +80,8 @@ export function DeliveryLogSheet({ isOpen, onClose, cycleId, farmId, orgId, onSa
       });
       onSaved?.();
       onClose();
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to save delivery log.');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save delivery log.');
     } finally {
       setIsSubmitting(false);
     }

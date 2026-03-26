@@ -1,6 +1,35 @@
 import { create } from 'zustand';
 import type { Farm } from '@/types';
+import type { Tables } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from './useAuthStore';
+
+type FarmMetricRow = Pick<Tables<'performance_metrics'>, 'created_at' | 'fcr_to_date' | 'livability_pct'>;
+type FarmCycleRow = Pick<
+  Tables<'production_cycles'>,
+  'id' | 'farm_id' | 'initial_birds' | 'batch_name' | 'start_date' | 'actual_end_date' | 'status'
+> & {
+  performance_metrics: FarmMetricRow[] | null;
+};
+type FarmHistoryRow = FarmCycleRow;
+type FarmPersonnelRow = Pick<Tables<'farm_assignments'>, 'role' | 'status'> & {
+  profiles: Pick<Tables<'profiles'>, 'id' | 'first_name' | 'last_name' | 'email'> | null;
+};
+type FarmStockRow = Pick<Tables<'inventory_stock'>, 'current_qty'> & {
+  inventory_items: Pick<Tables<'inventory_items'>, 'name' | 'unit'> | null;
+};
+
+function toFarmStatus(status: string | null): Farm['status'] {
+  if (status === 'empty' || status === 'maintenance') {
+    return status;
+  }
+
+  return 'active';
+}
+
+function getErrorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
 
 export interface FarmsState {
   // Data
@@ -10,9 +39,9 @@ export interface FarmsState {
   error: string | null;
   
   // Details for selected farm
-  farmHistory: any[];
-  farmPersonnel: any[];
-  farmStock: any[];
+  farmHistory: FarmHistoryRow[];
+  farmPersonnel: FarmPersonnelRow[];
+  farmStock: FarmStockRow[];
   
   // Computed values (derived from data)
   activeFarms: Farm[];
@@ -96,11 +125,12 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
         let totalLivability = 0;
         let metricsCount = 0;
 
-        farmCycles.forEach(c => {
-          const metrics = c.performance_metrics as any[];
+        farmCycles.forEach((c) => {
+          const metrics = (c as FarmCycleRow).performance_metrics || [];
           if (metrics && metrics.length > 0) {
-            // Get the latest metric
-            const latest = metrics[metrics.length - 1];
+            const latest = metrics
+              .slice()
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
             totalFCR += latest.fcr_to_date || 0;
             totalLivability += latest.livability_pct || 1;
             metricsCount++;
@@ -114,7 +144,7 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
           id: f.id,
           name: f.name,
           region: f.region || 'Unknown',
-          status: f.status as any,
+          status: toFarmStatus(f.status),
           capacity: f.capacity,
           currentBirdCount: currentBirdCount,
           activeCycles: farmCycles.length,
@@ -130,8 +160,8 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
       });
 
       set({ farms: mappedFarms, isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      set({ error: getErrorMessage(err, 'Failed to fetch farms.'), isLoading: false });
     }
   },
 
@@ -184,14 +214,14 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
 
       if (stockError) throw stockError;
 
-      set({ 
-        farmHistory: history || [], 
-        farmPersonnel: assignments || [],
-        farmStock: stock || [],
+      set({
+        farmHistory: (history || []) as FarmHistoryRow[],
+        farmPersonnel: (assignments || []) as FarmPersonnelRow[],
+        farmStock: (stock || []) as FarmStockRow[],
         isLoading: false 
       });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      set({ error: getErrorMessage(err, 'Failed to fetch farm details.'), isLoading: false });
     }
   },
 
@@ -210,10 +240,16 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
   createFarm: async ({ name, region, capacity, houseCount, lat, lng, orgId }) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
+      const authOrgId = useAuthStore.getState().user?.orgId;
+      const resolvedOrgId = authOrgId ?? orgId;
+      if (!resolvedOrgId) {
+        throw new Error('Organization context is required to create a farm.');
+      }
+
+      const { data: createdFarm, error } = await supabase
         .from('farms')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           farm_id_code: name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
           name,
           region,
@@ -222,14 +258,36 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
           location_lat: lat ?? null,
           location_lng: lng ?? null,
           status: 'active',
-        });
+        })
+        .select('*')
+        .single();
 
       if (error) throw error;
 
-      // Re-fetch farms to get the server-generated ID and updated list
-      await get().fetchFarms(orgId);
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const newFarm: Farm = {
+        id: createdFarm.id,
+        name: createdFarm.name,
+        region: createdFarm.region || 'Unknown',
+        status: toFarmStatus(createdFarm.status),
+        capacity: createdFarm.capacity,
+        currentBirdCount: 0,
+        activeCycles: 0,
+        avgFCR: 0,
+        avgLiveWeight: 0,
+        bpi: 0,
+        coordinates: {
+          lat: createdFarm.location_lat || 14.5995,
+          lng: createdFarm.location_lng || 120.9842
+        },
+        lastUpdated: new Date(createdFarm.created_at),
+      };
+
+      set((state) => ({
+        farms: [...state.farms, newFarm],
+        isLoading: false,
+      }));
+    } catch (err) {
+      set({ error: getErrorMessage(err, 'Failed to create farm.'), isLoading: false });
       throw err; // Re-throw so the calling component can handle it
     }
   },

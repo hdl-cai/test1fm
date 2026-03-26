@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 interface HarvestLogSheetProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface HarvestLogSheetProps {
 }
 
 export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: HarvestLogSheetProps) {
+  const authOrgId = useAuthStore((state) => state.user?.orgId);
   const [formData, setFormData] = React.useState({
     harvestDateStart: new Date().toISOString().split('T')[0],
     birdsHarvestedCount: '',
@@ -37,10 +39,15 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
     setSubmitError(null);
 
     try {
+      const resolvedOrgId = authOrgId ?? orgId;
+      if (!resolvedOrgId) {
+        throw new Error('Organization context is required to save a harvest log.');
+      }
+
       const { error } = await supabase
         .from('harvest_logs')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           cycle_id: cycleId,
           harvest_date_start: formData.harvestDateStart,
           birds_harvested_count: parseInt(formData.birdsHarvestedCount),
@@ -66,8 +73,8 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
       });
       onSaved?.();
       onClose();
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to save harvest log.');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save harvest log.');
     } finally {
       setIsSubmitting(false);
     }

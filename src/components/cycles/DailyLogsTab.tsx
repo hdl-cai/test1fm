@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Icon } from '@/hooks/useIcon';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
+import type { Tables } from '@/types/supabase';
 import {
     AreaChart,
     Area,
@@ -17,7 +18,7 @@ import {
 } from 'recharts';
 
 interface DailyLogsTabProps {
-    logs: any[];
+    logs: Tables<'daily_logs'>[];
     cycleId: string;
     orgId: string;
     onLogSaved?: () => void;
@@ -27,7 +28,8 @@ export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabP
     const [isAddingLog, setIsAddingLog] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const userId = useAuthStore((state) => state.user?.id);
+    const authUserId = useAuthStore((state) => state.user?.id);
+    const authOrgId = useAuthStore((state) => state.user?.orgId);
     const [currentPage, setCurrentPage] = useState(1);
 
     // Controlled form state for the inline log entry form
@@ -44,11 +46,16 @@ export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabP
         setSubmitError(null);
 
         try {
+            const resolvedOrgId = authOrgId ?? orgId;
+            if (!resolvedOrgId || !authUserId) {
+                throw new Error('You must be signed in to submit a daily log.');
+            }
+
             const today = new Date().toISOString().split('T')[0];
             const { error } = await supabase
                 .from('daily_logs')
                 .insert({
-                    org_id: orgId,
+                    org_id: resolvedOrgId,
                     cycle_id: cycleId,
                     log_date: today,
                     mortality_count: parseInt(logForm.mortalityCount) || 0,
@@ -56,7 +63,7 @@ export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabP
                     feed_used_kg: parseFloat(logForm.feedUsedKg) || 0,
                     avg_temp_c: logForm.avgTempC ? parseFloat(logForm.avgTempC) : null,
                     avg_humidity_pct: logForm.avgHumidityPct ? parseFloat(logForm.avgHumidityPct) : null,
-                    submitted_by: userId!,
+                    submitted_by: authUserId,
                     entry_type: 'grower_entry',
                     status: 'submitted',
                 });
@@ -67,8 +74,8 @@ export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabP
             setLogForm({ mortalityCount: '', culledCount: '', feedUsedKg: '', avgTempC: '', avgHumidityPct: '' });
             setIsAddingLog(false);
             onLogSaved?.();
-        } catch (err: any) {
-            setSubmitError(err.message || 'Failed to save log. Please try again.');
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Failed to save log. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

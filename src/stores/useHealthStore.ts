@@ -4,6 +4,12 @@
  */
 
 import { create } from 'zustand';
+import {
+  toHealthRecordStatus,
+  toHealthRecordType,
+  toVaccinationStepStatus,
+  type VaccinationScheduleRow,
+} from '@/lib/data-adapters';
 import { supabase } from '@/lib/supabase';
 import type { HealthRecord } from '@/types';
 
@@ -18,7 +24,7 @@ export interface VaccinationStep {
 export interface HealthState {
   // Data
   records: HealthRecord[];
-  schedules: any[];
+  schedules: VaccinationScheduleRow[];
   isLoading: boolean;
   error: string | null;
   
@@ -80,11 +86,11 @@ export const useHealthStore = create<HealthState>((set, get) => ({
       // 4. Map records to internal type
       const mappedRecords: HealthRecord[] = (recordsData || []).map(row => ({
         id: row.id,
-        type: row.record_type as any,
+        type: toHealthRecordType(row.record_type),
         description: row.subject,
         date: new Date(row.record_date),
         vetId: row.veterinarian_id || '',
-        status: (row.is_gahp_compliant ? 'completed' : 'pending') as any, // Simplified mapping
+        status: toHealthRecordStatus(row.is_gahp_compliant),
         medication: row.notes?.split('\n')[0], // Extract first line of notes as medication (hacky but matches UI for now)
         dosage: 'As prescribed',
         cycleId: row.cycle_id,
@@ -113,16 +119,20 @@ export const useHealthStore = create<HealthState>((set, get) => ({
         vaccinationCoverage: coverage,
         isLoading: false 
       });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch health data.';
+      set({ error: message, isLoading: false });
     }
   },
 
-  addRecord: async (recordData) => {
+  addRecord: async (_recordData) => {
+    void _recordData;
     // Implementation for adding records via Supabase
   },
 
-  updateRecord: async (id, updates) => {
+  updateRecord: async (_id, _updates) => {
+    void _id;
+    void _updates;
     // Implementation for updating records via Supabase
   },
 
@@ -149,7 +159,7 @@ export const useHealthStore = create<HealthState>((set, get) => ({
         const stepDate = new Date(startDate);
         stepDate.setDate(stepDate.getDate() + s.target_age_days);
 
-        let status: 'completed' | 'overdue' | 'scheduled' = s.status as any;
+        let status = toVaccinationStepStatus(s.status);
         if (status !== 'completed' && today > stepDate) {
             status = 'overdue';
         }

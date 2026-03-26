@@ -18,6 +18,7 @@ import { StatusBadge } from '@/components/shared';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useCycleDetails } from '@/hooks/useCycleDetails';
 import { useAuthStore } from '@/stores/useAuthStore';
+import type { Farm, Person, ProductionCycle } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 // Tab Components
@@ -58,7 +59,7 @@ export default function ProductionCycleDetails() {
     refetch,
   } = useCycleDetails(id);
 
-  const cycle = cycleData ? {
+  const cycle: ProductionCycle | null = cycleData ? {
     id: cycleData.id,
     farmId: cycleData.farm_id,
     growerId: cycleData.grower_id,
@@ -66,19 +67,34 @@ export default function ProductionCycleDetails() {
     startDate: new Date(cycleData.start_date),
     expectedEndDate: new Date(cycleData.anticipated_harvest_date || cycleData.start_date),
     birdCount: cycleData.initial_birds,
-    status: cycleData.status as any,
-    mortalityRate: cycleData.latestMetrics ? 100 - (cycleData.latestMetrics.livability_pct * 100) : 0,
+    status: cycleData.status === 'completed' ? 'completed' : cycleData.status === 'pending' ? 'pending' : 'active',
+    mortalityRate: cycleData.latestMetrics?.livability_pct != null ? 100 - (cycleData.latestMetrics.livability_pct * 100) : 0,
     feedConsumed: 0,
     currentFeedStock: 0,
     fcr: cycleData.latestMetrics?.fcr_to_date || 0,
   } : null;
 
-  const farm = cycleData?.farms;
-  const grower = cycleData?.profiles ? {
+  const farm: Farm | undefined = cycleData?.farms ? {
+    id: cycleData.farms.id,
+    name: cycleData.farms.name,
+    region: cycleData.farms.region,
+    status: 'active',
+    capacity: cycleData.farms.capacity,
+    currentBirdCount: cycle?.birdCount || 0,
+    activeCycles: cycle?.status === 'active' ? 1 : 0,
+    avgFCR: cycle?.fcr || 0,
+    avgLiveWeight: cycle?.averageWeight || 0,
+    bpi: 0,
+    coordinates: { lat: 0, lng: 0 },
+    lastUpdated: new Date(cycleData.created_at),
+  } : undefined;
+  const grower: Person | undefined = cycleData?.profiles ? {
     id: cycleData.profiles.id,
     name: `${cycleData.profiles.first_name} ${cycleData.profiles.last_name}`,
     email: cycleData.profiles.email,
     role: 'grower',
+    phone: '',
+    assignedFarms: cycle ? [cycle.farmId] : [],
     status: 'active',
   } : undefined;
 
@@ -137,7 +153,7 @@ export default function ProductionCycleDetails() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <PageTitle>{cycle.batchName}</PageTitle>
-            <StatusBadge status={cycle.status as any} size="sm" />
+            <StatusBadge status={cycle.status} size="sm" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {farm?.name || 'Unknown Farm'} · Started: {new Date(cycle.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -182,7 +198,7 @@ export default function ProductionCycleDetails() {
 
         <div className="p-8 pb-16 flex-1 min-h-[600px]">
           <TabsContent value="overview" className="mt-0">
-            <OverviewTab cycle={cycle} farm={farm as any} grower={grower as any} />
+            <OverviewTab cycle={cycle} farm={farm} grower={grower} />
           </TabsContent>
           <TabsContent value="health" className="mt-0">
             <HealthTab healthRecords={healthRecords} vaccinationSchedules={vaccinationSchedules} />

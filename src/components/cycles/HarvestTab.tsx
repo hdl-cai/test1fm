@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 import {
     BarChart,
@@ -27,6 +28,9 @@ interface HarvestTabProps {
 }
 
 export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSaved }: HarvestTabProps) {
+    const authUserId = useAuthStore((state) => state.user?.id);
+    const authUserRole = useAuthStore((state) => state.user?.role);
+    const authOrgId = useAuthStore((state) => state.user?.orgId);
     const [currentPage, setCurrentPage] = React.useState(1);
     const [isHarvestSheetOpen, setIsHarvestSheetOpen] = React.useState(false);
     const [disputingId, setDisputingId] = React.useState<string | null>(null);
@@ -45,14 +49,17 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
         { name: 'Harvested', value: totalHarvested, color: '#1DB954' },
     ];
 
-    const canVerify = userRole === 'admin' || userRole === 'owner' || userRole === 'grower';
+    const resolvedUserId = authUserId ?? userId;
+    const resolvedUserRole = authUserRole ?? userRole;
+    const resolvedOrgId = authOrgId ?? orgId;
+    const canVerify = resolvedUserRole === 'admin' || resolvedUserRole === 'owner' || resolvedUserRole === 'grower';
 
     const handleValidate = async (recordId: string) => {
-        if (!userId) return;
+        if (!resolvedUserId) return;
         setIsSubmitting(true);
         const { error } = await supabase.from('harvest_logs').update({
             is_validated: true,
-            validated_by: userId,
+            validated_by: resolvedUserId,
             validated_at: new Date().toISOString(),
         }).eq('id', recordId);
         setIsSubmitting(false);
@@ -60,7 +67,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
     };
 
     const handleDispute = async (recordId: string) => {
-        if (!userId) return;
+        if (!resolvedUserId) return;
         setIsSubmitting(true);
         const { error } = await supabase.from('harvest_logs').update({
             harvest_team_notes: `[DISPUTED] ${disputeNote}`,
@@ -313,7 +320,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
                 isOpen={isHarvestSheetOpen}
                 onClose={() => setIsHarvestSheetOpen(false)}
                 cycleId={cycleId}
-                orgId={orgId}
+                orgId={resolvedOrgId || orgId}
                 onSaved={onHarvestSaved}
             />
         </div >

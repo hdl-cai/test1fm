@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { useProfileStore } from './useProfileStore';
+import { mapProfileRowToAuthUser } from '@/lib/data-adapters';
+import type { UserRole } from '@/types';
+import { useProfileStore, type Profile } from './useProfileStore';
 
 // Module-level subscription reference — outside the Zustand store
 // so it persists across renders and can be cleaned up properly.
@@ -10,7 +12,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   orgId: string | null;
 }
 
@@ -21,7 +23,7 @@ export interface AuthState {
   error: string | null;
 
   // Actions
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
   clearError: () => void;
@@ -30,10 +32,10 @@ export interface AuthState {
 /**
  * Reusable function to fetch profile data for a given user ID.
  */
-async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
+async function fetchUserProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name, role, org_id')
+    .select('*')
     .eq('id', userId)
     .single();
 
@@ -42,13 +44,17 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
     return null;
   }
 
-  return {
-    id: data.id,
-    email: data.email,
-    name: `${data.first_name} ${data.last_name}`.trim(),
-    role: data.role,
-    orgId: data.org_id,
-  };
+  return data;
+}
+
+async function loadAuthContext(userId: string) {
+  const profile = await fetchUserProfile(userId);
+  if (!profile) {
+    return null;
+  }
+
+  await useProfileStore.getState().loadProfile(userId, profile);
+  return mapProfileRowToAuthUser(profile);
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -67,26 +73,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (error) {
       set({ isLoading: false, error: error.message });
-      return;
+      return false;
     }
 
     if (data?.user) {
-      const profile = await fetchUserProfile(data.user.id);
+      const profile = await loadAuthContext(data.user.id);
       
       if (profile) {
-        // Load detailed context (org settings etc)
-        await useProfileStore.getState().loadProfile(data.user.id);
-
         set({
           user: profile,
           isAuthenticated: true,
           isLoading: false,
           error: null,
         });
+        return true;
       } else {
         set({ isLoading: false, error: 'Could not load user profile.' });
+        return false;
       }
     }
+
+    set({ isLoading: false, error: 'Sign in did not return a user session.' });
+    return false;
   },
 
   signOut: async () => {
@@ -111,11 +119,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session?.user) {
-      const profile = await fetchUserProfile(session.user.id);
+      const profile = await loadAuthContext(session.user.id);
       if (profile) {
-        // Load detailed context (org settings etc)
-        await useProfileStore.getState().loadProfile(session.user.id);
-
         set({
           user: profile,
           isAuthenticated: true,
@@ -137,11 +142,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // 3. Listen for auth changes (SIGNED_IN, SIGNED_OUT, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        // If user is already set, we might not need to re-fetch profile/load context,
-        // but it's safer to ensure profile context is loaded.
-        const profile = await fetchUserProfile(session.user.id);
+        const existingUser = get().user;
+        const loadedProfile = useProfileStore.getState().profile;
+        if (existingUser?.id === session.user.id && loadedProfile?.id === session.user.id) {
+          set({ isAuthenticated: true, isLoading: false });
+          return;
+        }
+
+        const profile = await loadAuthContext(session.user.id);
         if (profile) {
-          await useProfileStore.getState().loadProfile(session.user.id);
           set({
             user: profile,
             isAuthenticated: true,

@@ -18,6 +18,7 @@ interface DOCLoadingSheetProps {
 
 export function DOCLoadingSheet({ isOpen, onClose, cycleId, orgId, onSaved }: DOCLoadingSheetProps) {
   const userId = useAuthStore((state) => state.user?.id);
+  const authOrgId = useAuthStore((state) => state.user?.orgId);
   const [formData, setFormData] = React.useState({
     hatcheryName: '',
     sourceFarmCertNo: '',
@@ -37,10 +38,15 @@ export function DOCLoadingSheet({ isOpen, onClose, cycleId, orgId, onSaved }: DO
     setSubmitError(null);
 
     try {
+      const resolvedOrgId = authOrgId ?? orgId;
+      if (!resolvedOrgId) {
+        throw new Error('Organization context is required to save a DOC loading record.');
+      }
+
       const { error } = await supabase
         .from('doc_loading')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           cycle_id: cycleId,
           hatchery_name: formData.hatcheryName || null,
           source_farm_cert_no: formData.sourceFarmCertNo,
@@ -63,8 +69,8 @@ export function DOCLoadingSheet({ isOpen, onClose, cycleId, orgId, onSaved }: DO
       });
       onSaved?.();
       onClose();
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to save DOC loading record.');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save DOC loading record.');
     } finally {
       setIsSubmitting(false);
     }

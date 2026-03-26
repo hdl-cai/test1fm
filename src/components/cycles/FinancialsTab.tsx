@@ -13,6 +13,8 @@ import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { Sheet } from '@/components/ui/sheet';
+import { useAuthStore } from '@/stores/useAuthStore';
+import type { CycleExpenseRow, DeliveredInputRow, HarvestSaleRow } from '@/lib/data-adapters';
 
 interface FinancialsTabProps {
   cycle: {
@@ -20,9 +22,9 @@ interface FinancialsTabProps {
     farmId: string;
     status: string;
   };
-  salesRecords: any[];
-  deliveredInputs: any[];
-  cycleExpenses: any[];
+  salesRecords: HarvestSaleRow[];
+  deliveredInputs: DeliveredInputRow[];
+  cycleExpenses: (CycleExpenseRow & { expense_categories?: { name: string } | null })[];
   orgId: string;
   userId: string;
   onRefetch?: () => void;
@@ -36,6 +38,8 @@ interface ExpenseCategory {
 export function FinancialsTab({
   cycle, salesRecords, deliveredInputs, cycleExpenses, orgId, userId, onRefetch
 }: FinancialsTabProps) {
+  const authOrgId = useAuthStore((state) => state.user?.orgId);
+  const authUserId = useAuthStore((state) => state.user?.id);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -64,28 +68,28 @@ export function FinancialsTab({
   // Group delivery costs by item_type
   const feedCosts = deliveredInputs
     .filter(d => d.item_type === 'feed')
-    .reduce((sum, d) => sum + (parseFloat(d.total_cost) || 0), 0);
+    .reduce((sum, d) => sum + Number(d.total_cost || 0), 0);
   const medicineCosts = deliveredInputs
     .filter(d => d.item_type === 'medicine' || d.item_type === 'biologic')
-    .reduce((sum, d) => sum + (parseFloat(d.total_cost) || 0), 0);
+    .reduce((sum, d) => sum + Number(d.total_cost || 0), 0);
   const otherDeliveryCosts = deliveredInputs
     .filter(d => !['feed', 'medicine', 'biologic'].includes(d.item_type))
-    .reduce((sum, d) => sum + (parseFloat(d.total_cost) || 0), 0);
+    .reduce((sum, d) => sum + Number(d.total_cost || 0), 0);
 
   // Group cycle_expenses by category
-  const expensesByCategory = cycleExpenses.reduce((acc: Record<string, number>, e: any) => {
+  const expensesByCategory = cycleExpenses.reduce((acc: Record<string, number>, e) => {
     const catName = e.expense_categories?.name || 'Uncategorized';
-    acc[catName] = (acc[catName] || 0) + (parseFloat(e.total_paid) || 0);
+    acc[catName] = (acc[catName] || 0) + Number(e.total_paid || 0);
     return acc;
   }, {} as Record<string, number>);
 
   const totalDeliveryCosts = feedCosts + medicineCosts + otherDeliveryCosts;
-  const totalManualExpenses = cycleExpenses.reduce((sum, e) => sum + (parseFloat(e.total_paid) || 0), 0);
+  const totalManualExpenses = cycleExpenses.reduce((sum, e) => sum + Number(e.total_paid || 0), 0);
   const totalExpenses = totalDeliveryCosts + totalManualExpenses;
 
   // ── Revenue Breakdown ────────────────────────────────────────────
-  const totalRevenue = salesRecords.reduce((sum, s) => sum + (parseFloat(s.net_revenue) || 0), 0);
-  const totalCarcassWeight = salesRecords.reduce((sum, s) => sum + (parseFloat(s.total_weight_kg) || 0), 0);
+  const totalRevenue = salesRecords.reduce((sum, s) => sum + Number(s.net_revenue || 0), 0);
+  const totalCarcassWeight = salesRecords.reduce((sum, s) => sum + Number(s.total_weight_kg || 0), 0);
 
   // ── P&L ──────────────────────────────────────────────────────────
   const netPL = totalRevenue - totalExpenses;
@@ -100,20 +104,26 @@ export function FinancialsTab({
     setSubmitError(null);
 
     try {
+      const resolvedOrgId = authOrgId ?? orgId;
+      const resolvedUserId = authUserId ?? userId;
+      if (!resolvedOrgId || !resolvedUserId) {
+        throw new Error('You must be signed in to add a manual expense.');
+      }
+
       const amountVal = parseFloat(amount);
       if (isNaN(amountVal) || amountVal <= 0) throw new Error('Amount must be a positive number');
 
       const { error } = await supabase
         .from('cycle_expenses')
         .insert({
-          org_id: orgId,
+          org_id: resolvedOrgId,
           cycle_id: cycle.id,
           farm_id: cycle.farmId,
           category_id: categoryId,
           description: description.trim(),
           amount_excl_vat: amountVal,
           total_paid: amountVal,
-          submitted_by: userId,
+          submitted_by: resolvedUserId,
           status: 'approved',
         });
 
@@ -125,8 +135,8 @@ export function FinancialsTab({
       setCategoryId('');
       setIsAddExpenseOpen(false);
       onRefetch?.();
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to add expense');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add expense');
     } finally {
       setIsSubmitting(false);
     }
@@ -278,9 +288,9 @@ export function FinancialsTab({
                       {sale.buyer_name || `Sale #${idx + 1}`}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{(sale.total_head_count || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{parseFloat(sale.total_weight_kg || 0).toLocaleString('en-PH', { maximumFractionDigits: 1 })}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{fmtCurrency(parseFloat(sale.price_per_kg_actual || 0))}</td>
-                    <td className="px-6 py-3 text-right font-semibold tabular-nums text-success">{fmtCurrency(parseFloat(sale.net_revenue || 0))}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{Number(sale.total_weight_kg || 0).toLocaleString('en-PH', { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmtCurrency(Number(sale.price_per_kg_actual || 0))}</td>
+                    <td className="px-6 py-3 text-right font-semibold tabular-nums text-success">{fmtCurrency(Number(sale.net_revenue || 0))}</td>
                   </tr>
                 ))
               )}

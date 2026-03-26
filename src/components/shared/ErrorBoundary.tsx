@@ -1,6 +1,7 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/hooks/useIcon';
+import { AlertCircleIcon } from '@/hooks/useIcon';
 
 interface Props {
   children?: ReactNode;
@@ -38,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center p-12 bg-destructive/5 border border-destructive/20 rounded-2xl text-center space-y-6 animate-in fade-in zoom-in duration-500">
           <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
-            <Icon name="Alert01Icon" size={32} />
+            <AlertCircleIcon size={32} />
           </div>
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-foreground">Something went wrong</h3>

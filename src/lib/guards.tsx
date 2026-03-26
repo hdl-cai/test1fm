@@ -1,10 +1,10 @@
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useProfileStore } from '@/stores/useProfileStore';
+import type { UserRole } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
-// Define the valid roles in the system
-export type UserRole = 'admin' | 'grower' | 'technician' | 'personnel' | 'owner';
+export type { UserRole } from '@/types';
 
 /**
  * Hook to guard a component or page based on user role.
@@ -43,8 +43,8 @@ export function hasRole(allowedRoles: UserRole[]): boolean {
 /**
  * Higher Order Component (HOC) wrapper for role protection
  */
-export function withRole(Component: React.ComponentType, allowedRoles: UserRole[]) {
-    return function WrappedWithRole(props: any) {
+export function withRole<P extends object>(Component: React.ComponentType<P>, allowedRoles: UserRole[]) {
+    return function WrappedWithRole(props: P) {
         const { isAuthorized, isLoading } = useRoleGuard(allowedRoles);
 
         if (isLoading) {

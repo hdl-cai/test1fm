@@ -4,8 +4,14 @@
  */
 
 import { create } from 'zustand';
+import {
+  mapProfileRowToPerson,
+  type PersonnelProfileRow,
+  type ProfileUpdate,
+} from '@/lib/data-adapters';
 import { supabase } from '@/lib/supabase';
-import type { Person } from '@/types';
+import type { Person, UserRole } from '@/types';
+import { useAuthStore } from './useAuthStore';
 
 export interface PersonnelState {
   // Data
@@ -19,7 +25,7 @@ export interface PersonnelState {
   selectPerson: (personId: string | null) => void;
   updatePerson: (personId: string, updates: Partial<Person>) => Promise<void>;
   addPerson: (person: Omit<Person, 'id' | 'assignedFarms'>) => Promise<void>;
-  assignFarm: (personId: string, farmId: string, role: string) => Promise<void>;
+  assignFarm: (personId: string, farmId: string, role: UserRole) => Promise<void>;
   unassignFarm: (personId: string, farmId: string) => Promise<void>;
 
   // Selectors
@@ -51,28 +57,20 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
 
       if (profileError) throw profileError;
 
-      const mappedPersonnel: Person[] = (profiles || []).map(p => ({
-        id: p.id,
-        name: `${p.first_name} ${p.last_name}`,
-        email: p.email,
-        phone: p.contact_number || '',
-        role: p.role as any,
-        status: p.status as any,
-        avatar: p.avatar_url || undefined,
-        assignedFarms: (p.assignments as any[] || []).map(a => a.farm_id),
-      }));
+      const mappedPersonnel: Person[] = ((profiles || []) as PersonnelProfileRow[]).map(mapProfileRowToPerson);
 
       set({ personnel: mappedPersonnel, isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch personnel.';
+      set({ error: message, isLoading: false });
     }
   },
 
-  selectPerson: (personId) => set({ selectedPersonId: personId }),
+    selectPerson: (personId) => set({ selectedPersonId: personId }),
 
   updatePerson: async (personId, updates) => {
     try {
-      const dbUpdates: any = {};
+      const dbUpdates: ProfileUpdate = {};
       if (updates.name) {
         const parts = updates.name.split(' ');
         dbUpdates.first_name = parts[0];
@@ -91,32 +89,33 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
       set(state => ({
         personnel: state.personnel.map(p => p.id === personId ? { ...p, ...updates } : p)
       }));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error updating person:', err);
     }
   },
 
   addPerson: async (_personData) => {
+    void _personData;
     console.warn('addPerson requires strategic implementation (invite vs create)');
   },
 
   assignFarm: async (personId, farmId, role) => {
     try {
-      // Find the org_id from existing personnel profile
       const targetUser = get().personnel.find(p => p.id === personId);
       if (!targetUser) return;
 
-      // We need org_id from the original profile record which is not in our Person type.
-      // Fetch it or assume from auth.
-      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', personId).single();
+      const orgId = useAuthStore.getState().user?.orgId;
+      if (!orgId) {
+        throw new Error('Organization context is required to assign a farm.');
+      }
       
       const { error } = await supabase
         .from('farm_assignments')
         .insert({
           user_id: personId,
           farm_id: farmId,
-          role: role,
-          org_id: profile?.org_id || '' 
+          role,
+          org_id: orgId,
         });
 
       if (error) throw error;
@@ -128,7 +127,7 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
             : p
         )
       }));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error assigning farm:', err);
     }
   },
@@ -150,7 +149,7 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
             : p
         )
       }));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error unassigning farm:', err);
     }
   },

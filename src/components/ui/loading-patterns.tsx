@@ -1,4 +1,6 @@
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from './skeleton';
+
+const CHART_SKELETON_HEIGHTS = ['24%', '56%', '38%', '72%', '46%', '82%', '60%', '34%', '68%', '50%', '76%', '42%'] as const;
 
 /**
  * Standard Metric Card Loading Skeleton
@@ -68,11 +70,11 @@ export function ChartSkeleton({ height = "300px" }: { height?: string }) {
       </div>
       <div style={{ height }} className="relative flex items-end gap-2 px-2 pb-8 pt-4">
         {/* Mocking bars/area height variations */}
-        {Array.from({ length: 12 }).map((_, i) => (
+        {CHART_SKELETON_HEIGHTS.map((heightValue, i) => (
           <Skeleton 
             key={i} 
             className="flex-1 rounded-t-lg" 
-            style={{ height: `${20 + Math.random() * 80}%` }} 
+            style={{ height: heightValue }} 
           />
         ))}
         {/* Bottom axis line */}

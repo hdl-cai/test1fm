@@ -9,7 +9,7 @@ export interface MetricCardProps {
     subtitle?: string;
     trend?: {
         value: number | string;
-        direction: 'up' | 'down';
+        direction: 'up' | 'down' | 'neutral';
         label?: string;
     };
     icon?: IconName;
@@ -76,9 +76,13 @@ export function MetricCard({
                             <div className="mt-4 flex items-center gap-2">
                                 <div className={cn(
                                     "flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-micro font-bold border",
-                                    trend.direction === 'up' ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20"
+                                    trend.direction === 'up'
+                                        ? "bg-success/10 text-success border-success/20"
+                                        : trend.direction === 'down'
+                                            ? "bg-danger/10 text-danger border-danger/20"
+                                            : "bg-muted/30 text-muted-foreground border-border/60"
                                 )}>
-                                    {trend.direction === 'up' ? <TrendingUpIcon size={12} /> : <TrendingDownIcon size={12} />}
+                                    {trend.direction === 'up' ? <TrendingUpIcon size={12} /> : trend.direction === 'down' ? <TrendingDownIcon size={12} /> : null}
                                     <span className="tabular-nums font-data">{trend.value}</span>
                                 </div>
                                 {trend.label && (

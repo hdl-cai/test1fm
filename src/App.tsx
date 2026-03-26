@@ -42,6 +42,12 @@ function RoleGuard({ roles, children }: { roles: UserRole[]; children: React.Rea
 function AppRoutes() {
   const { isAuthenticated, isLoading, initialize } = useAuthStore();
 
+  const routeLoader = (
+    <div className="flex items-center justify-center py-32">
+      <Loader2 size={28} className="animate-spin text-primary" />
+    </div>
+  );
+
   useEffect(() => {
     initialize();
   }, [initialize]);
@@ -61,21 +67,19 @@ function AppRoutes() {
   // Unauthenticated: only login route
   if (!isAuthenticated) {
     return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={routeLoader}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   // Authenticated: all app routes inside MainLayout
   return (
     <MainLayout>
-      <Suspense fallback={
-        <div className="flex items-center justify-center py-32">
-          <Loader2 size={28} className="animate-spin text-primary" />
-        </div>
-      }>
+      <Suspense fallback={routeLoader}>
         <Routes>
           {/* All roles */}
           <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />

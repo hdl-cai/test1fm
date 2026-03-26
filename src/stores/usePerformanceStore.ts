@@ -4,6 +4,11 @@
  */
 
 import { create } from 'zustand';
+import type {
+  CycleExpenseWithCategoryRow,
+  GrowerPerformanceRow,
+  PerformanceMetricRow,
+} from '@/lib/data-adapters';
 import { supabase } from '@/lib/supabase';
 
 export interface PerformanceStats {
@@ -123,8 +128,8 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
 
       // Map Leaderboard
       const uniqueGrowers = new Map<string, LeaderboardEntry>();
-      (historyData || []).forEach((entry) => {
-          const name = `${(entry.profiles as any)?.first_name || '' } ${(entry.profiles as any)?.last_name || ''}`.trim();
+      ((historyData || []) as GrowerPerformanceRow[]).forEach((entry) => {
+          const name = `${entry.profiles?.first_name || '' } ${entry.profiles?.last_name || ''}`.trim();
           uniqueGrowers.set(entry.grower_id, {
             id: entry.grower_id,
             growerName: name,
@@ -167,7 +172,7 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
       });
 
       // Process Costs from expenses
-      (expenses || []).forEach(e => {
+      ((expenses || []) as CycleExpenseWithCategoryRow[]).forEach(e => {
           const month = new Date(e.created_at).toLocaleDateString('en-US', { month: 'short' });
           const current = financialByMonth.get(month) || { month, revenue: 0, cost: 0, profit: 0 };
           const cost = Math.abs(Number(e.total_paid) || 0);
@@ -182,8 +187,8 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
       const categoryMap = new Map<string, number>();
       const chartColors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
       
-      (expenses || []).forEach(e => {
-          const catName = (e.category as any)?.name || 'Uncategorized';
+      ((expenses || []) as CycleExpenseWithCategoryRow[]).forEach(e => {
+          const catName = e.category?.name || 'Uncategorized';
           const cost = Math.abs(Number(e.total_paid) || 0);
           categoryMap.set(catName, (categoryMap.get(catName) || 0) + cost);
       });
@@ -194,11 +199,14 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
           color: chartColors[i % chartColors.length]
       }));
 
+      const metrics = (orgMetrics || []) as PerformanceMetricRow[];
+      const history = (historyData || []) as GrowerPerformanceRow[];
+
       // Averages for Stats
       const stats: PerformanceStats = {
-        epef: orgMetrics?.length ? orgMetrics.reduce((sum, m: any) => sum + (m.epef_to_date || 0), 0) / orgMetrics.length : (historyData?.length ? historyData.reduce((sum, h) => sum + (h.epef_score || 0), 0) / historyData.length : 0),
-        livability: orgMetrics?.length ? orgMetrics.reduce((sum, m: any) => sum + (m.livability_pct || 0), 0) / orgMetrics.length : (historyData?.length ? historyData.reduce((sum, h) => sum + (100 - (h.final_mortality_rate || 0) * 100), 0) / historyData.length : 0),
-        fcr: orgMetrics?.length ? orgMetrics.reduce((sum, m: any) => sum + (m.fcr_to_date || 0), 0) / orgMetrics.length : (historyData?.length ? historyData.reduce((sum, h) => sum + (h.final_fcr || 0), 0) / historyData.length : 0),
+        epef: history.length ? history.reduce((sum, h) => sum + (h.epef_score || 0), 0) / history.length : 0,
+        livability: metrics.length ? metrics.reduce((sum, m) => sum + (m.livability_pct || 0), 0) / metrics.length : (history.length ? history.reduce((sum, h) => sum + (100 - (h.final_mortality_rate || 0) * 100), 0) / history.length : 0),
+        fcr: metrics.length ? metrics.reduce((sum, m) => sum + (m.fcr_to_date || 0), 0) / metrics.length : (history.length ? history.reduce((sum, h) => sum + (h.final_fcr || 0), 0) / history.length : 0),
         avgWeight: 0, 
         epefTrend: 'stable',
         epefChange: 0
@@ -213,8 +221,9 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
         costBreakdown,
         isLoading: false 
       });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch performance data.';
+      set({ error: message, isLoading: false });
     }
   }
 }));

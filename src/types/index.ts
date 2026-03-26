@@ -2,6 +2,18 @@
  * FlockMate TypeScript Type Definitions
  */
 
+export const USER_ROLES = [
+  'admin',
+  'owner',
+  'grower',
+  'technician',
+  'personnel',
+  'farm_admin',
+  'vet',
+] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
 // ============================================================================
 // Farm Management
 // ============================================================================
@@ -77,7 +89,7 @@ export interface ProductionCycle {
 export interface Person {
   id: string;
   name: string;
-  role: 'farm_admin' | 'grower' | 'technician' | 'vet';
+  role: UserRole;
   email: string;
   phone: string;
   assignedFarms: string[];
