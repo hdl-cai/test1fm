@@ -4,7 +4,7 @@ import { MetricCard, DataTablePagination } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { supabase } from '@/lib/supabase';
+import { disputeHarvestLogRecord, validateHarvestLogRecord } from '@/lib/data/cycles';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 import {
@@ -57,27 +57,19 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
     const handleValidate = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        const { error } = await supabase.from('harvest_logs').update({
-            is_validated: true,
-            validated_by: resolvedUserId,
-            validated_at: new Date().toISOString(),
-        }).eq('id', recordId);
+        await validateHarvestLogRecord({ recordId, userId: resolvedUserId });
         setIsSubmitting(false);
-        if (!error) onHarvestSaved?.();
+        onHarvestSaved?.();
     };
 
     const handleDispute = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        const { error } = await supabase.from('harvest_logs').update({
-            harvest_team_notes: `[DISPUTED] ${disputeNote}`,
-        }).eq('id', recordId);
+        await disputeHarvestLogRecord({ recordId, note: disputeNote });
         setIsSubmitting(false);
-        if (!error) {
-            setDisputingId(null);
-            setDisputeNote('');
-            onHarvestSaved?.();
-        }
+        setDisputingId(null);
+        setDisputeNote('');
+        onHarvestSaved?.();
     };
 
     return (

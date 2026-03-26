@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { addDocLoadingRecord } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 interface DOCLoadingSheetProps {
@@ -38,26 +39,17 @@ export function DOCLoadingSheet({ isOpen, onClose, cycleId, orgId, onSaved }: DO
     setSubmitError(null);
 
     try {
-      const resolvedOrgId = authOrgId ?? orgId;
-      if (!resolvedOrgId) {
-        throw new Error('Organization context is required to save a DOC loading record.');
-      }
-
-      const { error } = await supabase
-        .from('doc_loading')
-        .insert({
-          org_id: resolvedOrgId,
-          cycle_id: cycleId,
-          hatchery_name: formData.hatcheryName || null,
-          source_farm_cert_no: formData.sourceFarmCertNo,
-          delivered_quantity: parseInt(formData.deliveredQuantity),
-          actual_placed_quantity: parseInt(formData.actualPlacedQuantity),
-          dead_on_arrival_count: parseInt(formData.deadOnArrivalCount) || 0,
-          average_chick_weight_g: formData.averageChickWeightG ? parseFloat(formData.averageChickWeightG) : null,
-          recorded_by: userId || null,
-        });
-
-      if (error) throw error;
+      await addDocLoadingRecord({
+        orgId: authOrgId ?? orgId,
+        userId: userId ?? null,
+        cycleId,
+        hatcheryName: formData.hatcheryName || undefined,
+        sourceFarmCertNo: formData.sourceFarmCertNo,
+        deliveredQuantity: parseInt(formData.deliveredQuantity),
+        actualPlacedQuantity: parseInt(formData.actualPlacedQuantity),
+        deadOnArrivalCount: parseInt(formData.deadOnArrivalCount) || 0,
+        averageChickWeightG: formData.averageChickWeightG ? parseFloat(formData.averageChickWeightG) : null,
+      });
 
       setFormData({
         hatcheryName: '',
@@ -70,7 +62,7 @@ export function DOCLoadingSheet({ isOpen, onClose, cycleId, orgId, onSaved }: DO
       onSaved?.();
       onClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save DOC loading record.');
+      setSubmitError(getErrorMessage(err, 'Failed to save DOC loading record.'));
     } finally {
       setIsSubmitting(false);
     }

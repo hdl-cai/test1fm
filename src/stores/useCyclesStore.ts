@@ -5,10 +5,9 @@
 
 import { create } from 'zustand';
 import type { ProductionCycle } from '@/types';
-import { mapCycleRowToProductionCycle } from '@/lib/data-adapters';
-import { supabase } from '@/lib/supabase';
+import { createCycleRecord, fetchCycles as fetchCyclesData } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { differenceInDays } from 'date-fns';
-import { useAuthStore } from './useAuthStore';
 
 function getCycleSummary(cycles: ProductionCycle[]) {
   const activeCycles = cycles.filter(c => c.status === 'active');
@@ -77,19 +76,7 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
   fetchCycles: async (orgId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('production_cycles')
-        .select(`
-          *,
-          farms (name),
-          performance_metrics (fcr_to_date, livability_pct, created_at)
-        `)
-        .eq('org_id', orgId)
-        .range(0, 199);
-
-      if (error) throw error;
-
-       const mappedCycles: ProductionCycle[] = (data || []).map(mapCycleRowToProductionCycle);
+      const mappedCycles: ProductionCycle[] = await fetchCyclesData(orgId);
 
       const summary = getCycleSummary(mappedCycles);
 
@@ -99,7 +86,7 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
         ...summary
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch production cycles.';
+      const message = getErrorMessage(err, 'Failed to fetch production cycles.');
       set({ error: message, isLoading: false });
     }
   },
@@ -119,40 +106,23 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
   createCycle: async ({ batchName, farmId, growerId, birdCount, startDate, anticipatedHarvestDate, orgId }) => {
     set({ isLoading: true, error: null });
     try {
-      const authOrgId = useAuthStore.getState().user?.orgId;
-      const resolvedOrgId = authOrgId ?? orgId;
-      if (!resolvedOrgId) {
-        throw new Error('Organization context is required to create a production cycle.');
-      }
-
-      const { data: createdCycle, error } = await supabase
-        .from('production_cycles')
-        .insert({
-          org_id: resolvedOrgId,
-          farm_id: farmId,
-          grower_id: growerId,
-          batch_name: batchName,
-          initial_birds: birdCount,
-          start_date: startDate,
-          anticipated_harvest_date: anticipatedHarvestDate,
-          status: 'active',
-        })
-        .select(`
-          *,
-          performance_metrics (fcr_to_date, livability_pct, created_at)
-        `)
-        .single();
-
-      if (error) throw error;
-
-      const nextCycles = [...get().cycles, mapCycleRowToProductionCycle(createdCycle)];
+      const createdCycle = await createCycleRecord({
+        batchName,
+        farmId,
+        growerId,
+        birdCount,
+        startDate,
+        anticipatedHarvestDate,
+        orgId,
+      });
+      const nextCycles = [...get().cycles, createdCycle];
       set({
         cycles: nextCycles,
         isLoading: false,
         ...getCycleSummary(nextCycles),
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create production cycle.';
+      const message = getErrorMessage(err, 'Failed to create production cycle.');
       set({ error: message, isLoading: false });
       throw err;
     }

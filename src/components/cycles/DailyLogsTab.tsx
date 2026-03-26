@@ -4,7 +4,8 @@ import { MetricCard, DataTablePagination } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Icon } from '@/hooks/useIcon';
-import { supabase } from '@/lib/supabase';
+import { addDailyLogRecord } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { Tables } from '@/types/supabase';
 import {
@@ -46,36 +47,24 @@ export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabP
         setSubmitError(null);
 
         try {
-            const resolvedOrgId = authOrgId ?? orgId;
-            if (!resolvedOrgId || !authUserId) {
-                throw new Error('You must be signed in to submit a daily log.');
-            }
-
-            const today = new Date().toISOString().split('T')[0];
-            const { error } = await supabase
-                .from('daily_logs')
-                .insert({
-                    org_id: resolvedOrgId,
-                    cycle_id: cycleId,
-                    log_date: today,
-                    mortality_count: parseInt(logForm.mortalityCount) || 0,
-                    culled_count: parseInt(logForm.culledCount) || 0,
-                    feed_used_kg: parseFloat(logForm.feedUsedKg) || 0,
-                    avg_temp_c: logForm.avgTempC ? parseFloat(logForm.avgTempC) : null,
-                    avg_humidity_pct: logForm.avgHumidityPct ? parseFloat(logForm.avgHumidityPct) : null,
-                    submitted_by: authUserId,
-                    entry_type: 'grower_entry',
-                    status: 'submitted',
-                });
-
-            if (error) throw error;
+            await addDailyLogRecord({
+                orgId: authOrgId ?? orgId,
+                userId: authUserId ?? null,
+                cycleId,
+                logDate: new Date().toISOString().split('T')[0],
+                mortalityCount: parseInt(logForm.mortalityCount) || 0,
+                culledCount: parseInt(logForm.culledCount) || 0,
+                feedUsedKg: parseFloat(logForm.feedUsedKg) || 0,
+                avgTempC: logForm.avgTempC ? parseFloat(logForm.avgTempC) : null,
+                avgHumidityPct: logForm.avgHumidityPct ? parseFloat(logForm.avgHumidityPct) : null,
+            });
 
             // Reset form and close
             setLogForm({ mortalityCount: '', culledCount: '', feedUsedKg: '', avgTempC: '', avgHumidityPct: '' });
             setIsAddingLog(false);
             onLogSaved?.();
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Failed to save log. Please try again.');
+            setSubmitError(getErrorMessage(err, 'Failed to save log. Please try again.'));
         } finally {
             setIsSubmitting(false);
         }

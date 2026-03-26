@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { addDeliveryLogRecord } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 interface DeliveryLogSheetProps {
@@ -47,27 +48,18 @@ export function DeliveryLogSheet({ isOpen, onClose, cycleId, farmId, orgId, onSa
     setSubmitError(null);
 
     try {
-      const resolvedOrgId = authOrgId ?? orgId;
-      if (!resolvedOrgId) {
-        throw new Error('Organization context is required to save a delivery log.');
-      }
-
-      const { error } = await supabase
-        .from('delivered_inputs')
-        .insert({
-          org_id: resolvedOrgId,
-          cycle_id: cycleId,
-          farm_id: farmId,
-          item_name: formData.itemName,
-          item_type: formData.itemType,
-          quantity_delivered: parseFloat(formData.quantityDelivered),
-          unit: formData.unit,
-          cost_per_unit: parseFloat(formData.costPerUnit),
-          delivery_date: formData.deliveryDate,
-          notes: formData.notes || null,
-        });
-
-      if (error) throw error;
+      await addDeliveryLogRecord({
+        orgId: authOrgId ?? orgId,
+        cycleId,
+        farmId,
+        itemName: formData.itemName,
+        itemType: formData.itemType,
+        quantityDelivered: parseFloat(formData.quantityDelivered),
+        unit: formData.unit,
+        costPerUnit: parseFloat(formData.costPerUnit),
+        deliveryDate: formData.deliveryDate,
+        notes: formData.notes || undefined,
+      });
 
       setFormData({
         itemName: '',
@@ -81,7 +73,7 @@ export function DeliveryLogSheet({ isOpen, onClose, cycleId, farmId, orgId, onSa
       onSaved?.();
       onClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save delivery log.');
+      setSubmitError(getErrorMessage(err, 'Failed to save delivery log.'));
     } finally {
       setIsSubmitting(false);
     }

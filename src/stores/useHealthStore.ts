@@ -5,12 +5,11 @@
 
 import { create } from 'zustand';
 import {
-  toHealthRecordStatus,
-  toHealthRecordType,
   toVaccinationStepStatus,
   type VaccinationScheduleRow,
 } from '@/lib/data-adapters';
-import { supabase } from '@/lib/supabase';
+import { fetchHealthData as fetchHealthDataFromDataLayer } from '@/lib/data/health';
+import { getErrorMessage } from '@/lib/data/errors';
 import type { HealthRecord } from '@/types';
 
 export interface VaccinationStep {
@@ -55,72 +54,17 @@ export const useHealthStore = create<HealthState>((set, get) => ({
   fetchHealthData: async (orgId: string) => {
     set({ isLoading: true, error: null });
     try {
-      // 1. Fetch Health Records
-      const { data: recordsData, error: recordsError } = await supabase
-        .from('health_records')
-        .select(`
-          *,
-          veterinarian:profiles!health_records_veterinarian_id_fkey(first_name, last_name)
-        `)
-        .eq('org_id', orgId)
-        .order('record_date', { ascending: false });
-
-      if (recordsError) throw recordsError;
-
-      // 2. Fetch Medication Logs (for active medications count)
-      const { data: medLogs, error: medError } = await supabase
-        .from('medication_logs')
-        .select('*')
-        .eq('org_id', orgId);
-      
-      if (medError) throw medError;
-
-      // 3. Fetch Vaccination Schedules
-      const { data: vaxData, error: vaxError } = await supabase
-        .from('vaccination_schedules')
-        .select('*')
-        .eq('org_id', orgId);
-
-      if (vaxError) throw vaxError;
-
-      // 4. Map records to internal type
-      const mappedRecords: HealthRecord[] = (recordsData || []).map(row => ({
-        id: row.id,
-        type: toHealthRecordType(row.record_type),
-        description: row.subject,
-        date: new Date(row.record_date),
-        vetId: row.veterinarian_id || '',
-        status: toHealthRecordStatus(row.is_gahp_compliant),
-        medication: row.notes?.split('\n')[0], // Extract first line of notes as medication (hacky but matches UI for now)
-        dosage: 'As prescribed',
-        cycleId: row.cycle_id,
-      }));
-
-      // Calculate Metrics
-      // Active medications: recent logs in last 7 days (simplified)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const activeMedications = medLogs?.filter(log => new Date(log.created_at) > sevenDaysAgo).length || 0;
-
-      // Quarantined birds: based on subject line in logs (since there's no explicit quarantine table)
-      const quarantineRecords = recordsData?.filter(r => r.subject.toLowerCase().includes('quarantine')) || [];
-      const quarantinedCount = quarantineRecords.length > 0 ? 45 : 0; // Mocking specific number if records exist for now
-
-      // Vaccination Coverage
-      const completedVax = vaxData?.filter(v => v.status === 'completed').length || 0;
-      const totalVax = vaxData?.length || 1;
-      const coverage = Math.round((completedVax / totalVax) * 100);
-
+      const data = await fetchHealthDataFromDataLayer(orgId);
       set({ 
-        records: mappedRecords, 
-        schedules: vaxData || [],
-        activeMedicationsCount: activeMedications || 0,
-        quarantinedBirdsCount: quarantinedCount,
-        vaccinationCoverage: coverage,
+        records: data.records, 
+        schedules: data.schedules,
+        activeMedicationsCount: data.activeMedicationsCount,
+        quarantinedBirdsCount: data.quarantinedBirdsCount,
+        vaccinationCoverage: data.vaccinationCoverage,
         isLoading: false 
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch health data.';
+      const message = getErrorMessage(err, 'Failed to fetch health data.');
       set({ error: message, isLoading: false });
     }
   },

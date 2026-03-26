@@ -1,9 +1,12 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import type { Database } from '@/types/supabase';
-
-export type Profile = Database['public']['Tables']['profiles']['Row'];
-type OrgSettings = Database['public']['Tables']['org_settings']['Row'];
+import {
+  fetchProfileById,
+  loadProfileContext as loadProfileContextFromDataLayer,
+  saveProfileUpdates,
+  type Profile,
+  type OrgSettings,
+} from '@/lib/data/profile';
+import { getErrorMessage } from '@/lib/data/errors';
 
 let profileLoadPromise: Promise<void> | null = null;
 
@@ -43,42 +46,14 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       try {
         let profile = initialProfile;
         if (!profile) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-
-          if (error) {
-            throw error;
-          }
-
-          profile = data;
+          profile = await fetchProfileById(userId);
         }
 
         if (!profile) {
           throw new Error('Profile not found.');
         }
 
-        let orgSettings: OrgSettings | null = null;
-        let isSingleUser = false;
-
-        if (profile.org_id) {
-          const [{ data: settings }, { count }] = await Promise.all([
-            supabase
-              .from('org_settings')
-              .select('*')
-              .eq('org_id', profile.org_id)
-              .single(),
-            supabase
-              .from('org_members')
-              .select('*', { count: 'exact', head: true })
-              .eq('org_id', profile.org_id),
-          ]);
-
-          orgSettings = settings;
-          isSingleUser = (count ?? 0) <= 1;
-        }
+        const { orgSettings, isSingleUser } = await loadProfileContextFromDataLayer(userId, profile);
 
         set({
           profile,
@@ -87,7 +62,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
           isLoading: false
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load profile context.';
+        const message = getErrorMessage(err, 'Failed to load profile context.');
         set({ error: message, isLoading: false });
         console.error('Error loading profile context:', err);
       } finally {
@@ -103,17 +78,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     if (!profile) return;
 
     set({ isLoading: true });
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', profile.id)
-      .select()
-      .single();
-
-    if (error) {
-      set({ error: error.message, isLoading: false });
-    } else {
+    try {
+      const data = await saveProfileUpdates(profile.id, updates);
       set({ profile: data, isLoading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error, 'Failed to update profile.'), isLoading: false });
     }
   },
 

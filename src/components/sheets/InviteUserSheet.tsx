@@ -9,7 +9,8 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Icon } from '@/hooks/useIcon';
-import { supabase } from '@/lib/supabase';
+import { sendUserInvite } from '@/lib/data/auth';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 interface InviteUserSheetProps {
@@ -43,36 +44,18 @@ export function InviteUserSheet({ isOpen, onClose, onInvited }: InviteUserSheetP
     setSuccess(false);
 
     try {
-      // Get current session token for authorization
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            role,
-            org_id: orgId,
-          }),
-        }
-      );
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to invite user');
+      await sendUserInvite({
+        email: email.trim(),
+        role,
+        orgId,
+      });
 
       setSuccess(true);
       onInvited?.();
       // Auto-close after brief success display
       setTimeout(() => onClose(), 1500);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send invite');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to send invite'));
     } finally {
       setIsSubmitting(false);
     }

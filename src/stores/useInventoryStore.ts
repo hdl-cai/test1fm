@@ -4,7 +4,8 @@
  */
 
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
+import { fetchInventoryData } from '@/lib/data/inventory';
+import { getErrorMessage } from '@/lib/data/errors';
 import type { InventoryItem } from '@/types';
 
 export interface InventoryState {
@@ -81,67 +82,10 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   fetchInventory: async (orgId: string) => {
     set({ isLoading: true, error: null });
     try {
-      // 0. Fetch Categories
-      const { data: catData, error: catError } = await supabase
-        .from('inventory_categories')
-        .select('id, name');
-      
-      if (catError) throw catError;
-      set({ categories: catData || [] });
-
-      // 1. Fetch items with categories
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('inventory_items')
-        .select(`
-          *,
-          inventory_categories (name)
-        `)
-        .eq('org_id', orgId);
-
-      if (itemsError) throw itemsError;
-
-      // 2. Fetch stock levels
-      const { data: stockData, error: stockError } = await supabase
-        .from('inventory_stock')
-        .select('*')
-        .eq('org_id', orgId);
-
-      if (stockError) throw stockError;
-
-      // 3. Map and Merge
-      const mappedItems: InventoryItem[] = (itemsData || []).map((item: any) => {
-        // Aggregate stock across all farms for this item
-        const itemStocks = stockData?.filter((s: any) => s.item_id === item.id) || [];
-        const totalStock = itemStocks.reduce((sum: number, s: any) => sum + (s.current_qty || 0), 0);
-        const lastUpdated = itemStocks.length > 0 
-          ? new Date(Math.max(...itemStocks.map((s: any) => new Date(s.last_updated).getTime())))
-          : undefined;
-
-        const categoryName = (item.inventory_categories as any)?.name?.toLowerCase() || 'other';
-        const category: InventoryItem['category'] = 
-          categoryName === 'feed' ? 'feed' :
-          categoryName === 'medical' ? 'medical' :
-          categoryName === 'supplements' ? 'supplements' : 'feed';
-
-        let status: InventoryItem['status'] = 'in_stock';
-        if (totalStock <= 0) status = 'out_of_stock';
-        else if (totalStock <= (item.low_stock_threshold || 0)) status = 'low_stock';
-
-        return {
-          id: item.id,
-          name: item.name,
-          category,
-          currentStock: totalStock,
-          unit: item.unit,
-          threshold: item.low_stock_threshold || 0,
-          status,
-          lastRestocked: lastUpdated,
-        };
-      });
-
-      set({ items: mappedItems, isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const data = await fetchInventoryData(orgId);
+      set({ categories: data.categories, items: data.items, isLoading: false });
+    } catch (err) {
+      set({ error: getErrorMessage(err, 'Failed to fetch inventory.'), isLoading: false });
     }
   },
   

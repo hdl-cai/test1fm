@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { MetricCard } from '@/components/shared';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { completeCycleRecord } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 
 interface ReconciliationTabProps {
   cycle: {
@@ -72,18 +73,10 @@ export function ReconciliationTab({
     setCloseError(null);
 
     try {
-      const { error } = await supabase
-        .from('production_cycles')
-        .update({
-          status: 'completed',
-          actual_end_date: new Date().toISOString().split('T')[0],
-        })
-        .eq('id', cycle.id);
-
-      if (error) throw error;
+      await completeCycleRecord(cycle.id);
       onCycleClosed?.();
-    } catch (err: any) {
-      setCloseError(err.message || 'Failed to close cycle.');
+    } catch (err) {
+      setCloseError(getErrorMessage(err, 'Failed to close cycle.'));
     } finally {
       setIsClosing(false);
       setShowConfirm(false);

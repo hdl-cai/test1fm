@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { addHarvestLogRecord } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 interface HarvestLogSheetProps {
@@ -39,27 +40,18 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
     setSubmitError(null);
 
     try {
-      const resolvedOrgId = authOrgId ?? orgId;
-      if (!resolvedOrgId) {
-        throw new Error('Organization context is required to save a harvest log.');
-      }
-
-      const { error } = await supabase
-        .from('harvest_logs')
-        .insert({
-          org_id: resolvedOrgId,
-          cycle_id: cycleId,
-          harvest_date_start: formData.harvestDateStart,
-          birds_harvested_count: parseInt(formData.birdsHarvestedCount),
-          gross_weight_kg: parseFloat(formData.grossWeightKg),
-          birds_rejected_count: parseInt(formData.birdsRejectedCount) || 0,
-          reject_weight_kg: parseFloat(formData.rejectWeightKg) || 0,
-          loading_loss_count: parseInt(formData.loadingLossCount) || 0,
-          fleet_used: formData.fleetUsed || null,
-          harvest_team_notes: formData.harvestTeamNotes || null,
-        });
-
-      if (error) throw error;
+      await addHarvestLogRecord({
+        orgId: authOrgId ?? orgId,
+        cycleId,
+        harvestDateStart: formData.harvestDateStart,
+        birdsHarvestedCount: parseInt(formData.birdsHarvestedCount),
+        grossWeightKg: parseFloat(formData.grossWeightKg),
+        birdsRejectedCount: parseInt(formData.birdsRejectedCount) || 0,
+        rejectWeightKg: parseFloat(formData.rejectWeightKg) || 0,
+        loadingLossCount: parseInt(formData.loadingLossCount) || 0,
+        fleetUsed: formData.fleetUsed || undefined,
+        harvestTeamNotes: formData.harvestTeamNotes || undefined,
+      });
 
       setFormData({
         harvestDateStart: new Date().toISOString().split('T')[0],
@@ -74,7 +66,7 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
       onSaved?.();
       onClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save harvest log.');
+      setSubmitError(getErrorMessage(err, 'Failed to save harvest log.'));
     } finally {
       setIsSubmitting(false);
     }
