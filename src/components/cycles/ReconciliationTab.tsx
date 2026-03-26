@@ -21,23 +21,49 @@ interface ReconciliationTabProps {
     birdCount: number;       // initial_birds
     status: string;
   };
-  dailyLogs: any[];
-  harvestRecords: any[];
-  salesRecords: any[];
-  deliveredInputs: any[];
-  cycleExpenses: any[];
+  dailyLogs: DailyLogRow[];
+  harvestRecords: HarvestRecordRow[];
+  salesRecords: SalesRecordRow[];
+  deliveredInputs: DeliveredInputRow[];
+  cycleExpenses: CycleExpenseRow[];
   orgId: string;
   userId: string;
   onCycleClosed?: () => void;
 }
 
+interface DailyLogRow {
+  mortality_count: number | null;
+  culled_count: number | null;
+  feed_used_kg: string | number | null;
+}
+
+interface HarvestRecordRow {
+  birds_harvested_count: number | null;
+}
+
+interface SalesRecordRow {
+  net_revenue: string | number | null;
+  total_weight_kg: string | number | null;
+}
+
+interface DeliveredInputRow {
+  item_type: string | null;
+  quantity_delivered: string | number | null;
+  total_cost: string | number | null;
+}
+
+interface CycleExpenseRow {
+  total_paid: string | number | null;
+}
+
 export function ReconciliationTab({
-  cycle, dailyLogs, harvestRecords, salesRecords, deliveredInputs, cycleExpenses, orgId: _orgId, userId: _userId, onCycleClosed
+  cycle, dailyLogs, harvestRecords, salesRecords, deliveredInputs, cycleExpenses, onCycleClosed
 }: ReconciliationTabProps) {
   const [reconciliationNotes, setReconciliationNotes] = React.useState('');
   const [isClosing, setIsClosing] = React.useState(false);
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const toNumber = (value: string | number | null | undefined) => Number(value ?? 0);
 
   // ── Bird Accounting ──────────────────────────────────────────────
   const initialDOC = cycle.birdCount || 0;
@@ -49,20 +75,20 @@ export function ReconciliationTab({
   // ── Feed Accounting ──────────────────────────────────────────────
   const feedDelivered = deliveredInputs
     .filter(d => d.item_type === 'feed')
-    .reduce((sum, d) => sum + (parseFloat(d.quantity_delivered) || 0), 0);
-  const feedConsumed = dailyLogs.reduce((sum, l) => sum + (parseFloat(l.feed_used_kg) || 0), 0);
+    .reduce((sum, d) => sum + toNumber(d.quantity_delivered), 0);
+  const feedConsumed = dailyLogs.reduce((sum, l) => sum + toNumber(l.feed_used_kg), 0);
   const feedVariance = feedDelivered - feedConsumed;
 
   // ── Financial Summary ────────────────────────────────────────────
-  const totalExpenses = cycleExpenses.reduce((sum, e) => sum + (parseFloat(e.total_paid) || 0), 0);
-  const deliveryCosts = deliveredInputs.reduce((sum, d) => sum + (parseFloat(d.total_cost) || 0), 0);
+  const totalExpenses = cycleExpenses.reduce((sum, e) => sum + toNumber(e.total_paid), 0);
+  const deliveryCosts = deliveredInputs.reduce((sum, d) => sum + toNumber(d.total_cost), 0);
   const totalCosts = totalExpenses + deliveryCosts;
 
-  const totalRevenue = salesRecords.reduce((sum, s) => sum + (parseFloat(s.net_revenue) || 0), 0);
+  const totalRevenue = salesRecords.reduce((sum, s) => sum + toNumber(s.net_revenue), 0);
   const netPL = totalRevenue - totalCosts;
   const roiPct = totalCosts > 0 ? ((netPL / totalCosts) * 100) : 0;
 
-  const totalCarcassWeight = salesRecords.reduce((sum, s) => sum + (parseFloat(s.total_weight_kg) || 0), 0);
+  const totalCarcassWeight = salesRecords.reduce((sum, s) => sum + toNumber(s.total_weight_kg), 0);
   const costPerKg = totalCarcassWeight > 0 ? (totalCosts / totalCarcassWeight) : 0;
 
   const isCycleClosed = cycle.status === 'completed' || cycle.status === 'terminated';

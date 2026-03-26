@@ -22,12 +22,17 @@ export function useDashboardData() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.orgId) return;
+    if (!user?.orgId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const orgId = user.orgId;
 
     async function fetchData() {
       setIsLoading(true);
       try {
-        const data = await fetchDashboardData(user.orgId);
+        const data = await fetchDashboardData(orgId);
         setStats(data.stats);
         setChartData(data.chartData);
         setPendingApprovals(data.pendingApprovals);

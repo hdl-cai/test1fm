@@ -1,14 +1,17 @@
 import { supabase } from '@/lib/supabase';
 import type { CashAdvance, PayrollRecord, Transaction } from '@/types';
 import type { CycleExpenseWithCategoryRow } from '@/lib/data-adapters';
+import type { Tables } from '@/types/supabase';
 import { requireOrgId } from './context';
 import { toDataLayerError } from './errors';
+
+export type SettlementStatementSummary = Pick<Tables<'settlement_statements'>, 'id' | 'final_net_payout'>;
 
 export interface FinanceData {
   transactions: Transaction[];
   payrollRecords: PayrollRecord[];
   cashAdvances: CashAdvance[];
-  settlementStatements: any[];
+  settlementStatements: SettlementStatementSummary[];
   totalExpenses: number;
   totalIncome: number;
   pendingAdvancementCount: number;
@@ -122,7 +125,7 @@ export async function fetchFinanceData(orgId: string): Promise<FinanceData> {
       transactions,
       payrollRecords,
       cashAdvances,
-      settlementStatements: settlements || [],
+      settlementStatements: ((settlements || []) as SettlementStatementSummary[]),
       totalExpenses,
       totalIncome,
       pendingAdvancementCount,

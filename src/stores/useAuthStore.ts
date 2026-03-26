@@ -6,10 +6,10 @@ import {
   signOutCurrentUser,
   subscribeToAuthChanges,
 } from '@/lib/data/auth';
-import { fetchProfileById } from '@/lib/data/profile';
+import { fetchProfileById, type Profile } from '@/lib/data/profile';
 import { getErrorMessage } from '@/lib/data/errors';
 import type { UserRole } from '@/types';
-import { useProfileStore, type Profile } from './useProfileStore';
+import { useProfileStore } from './useProfileStore';
 
 // Module-level subscription reference — outside the Zustand store
 // so it persists across renders and can be cleaned up properly.

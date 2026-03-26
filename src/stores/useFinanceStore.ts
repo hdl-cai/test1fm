@@ -4,7 +4,11 @@
  */
 
 import { create } from 'zustand';
-import { fetchFinanceData as fetchFinanceDataFromDataLayer, updateCashAdvanceStatus } from '@/lib/data/finance';
+import {
+  fetchFinanceData as fetchFinanceDataFromDataLayer,
+  type SettlementStatementSummary,
+  updateCashAdvanceStatus,
+} from '@/lib/data/finance';
 import { getErrorMessage } from '@/lib/data/errors';
 import type { Transaction, PayrollRecord, CashAdvance } from '@/types';
 
@@ -13,7 +17,7 @@ export interface FinanceState {
   transactions: Transaction[];
   payrollRecords: PayrollRecord[];
   cashAdvances: CashAdvance[];
-  settlementStatements: any[];
+  settlementStatements: SettlementStatementSummary[];
   isLoading: boolean;
   error: string | null;
   
@@ -72,7 +76,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
             ? state.pendingAdvancementCount - 1 
             : state.pendingAdvancementCount
       }));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error updating advance status:', err);
     }
   },

@@ -23,6 +23,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { SupplyItemSheet } from '@/components/sheets/SupplyItemSheet';
 import {
   archiveInventoryItem,
+  type DeliveryLog,
   fetchDeliveryLogs,
   fetchInventoryCatalogue,
   type InventoryCatalogueItem,
@@ -30,6 +31,8 @@ import {
 import { getErrorMessage } from '@/lib/data/errors';
 
 type TabType = 'orders' | 'catalogue';
+
+const parseFloat = (value: string | number | null | undefined) => Number(value ?? 0);
 
 
 
@@ -56,10 +59,10 @@ export default function Inventory() {
   const [catalogueItems, setCatalogueItems] = React.useState<InventoryCatalogueItem[]>([]);
   const [isCatalogueLoading, setIsCatalogueLoading] = React.useState(false);
   const [isSupplySheetOpen, setIsSupplySheetOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<any | null>(null);
+  const [editingItem, setEditingItem] = React.useState<InventoryCatalogueItem | null>(null);
 
   // Deliveries state (replaces mockOrders)
-  const [deliveries, setDeliveries] = React.useState<any[]>([]);
+  const [deliveries, setDeliveries] = React.useState<DeliveryLog[]>([]);
   const [isDeliveriesLoading, setIsDeliveriesLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 

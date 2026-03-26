@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { InventoryItem } from '@/types';
-import type { TablesInsert } from '@/types/supabase';
+import type { Tables, TablesInsert } from '@/types/supabase';
 import { requireOrgId } from './context';
 import { toDataLayerError } from './errors';
 
@@ -26,6 +26,24 @@ export interface InventoryData {
   items: InventoryItem[];
 }
 
+export interface DeliveryLog {
+  id: string;
+  item_name: string | null;
+  item_type: string | null;
+  quantity_delivered: string | number | null;
+  unit: string | null;
+  total_cost: string | number | null;
+  delivery_date: string;
+}
+
+type InventoryItemRow = Pick<Tables<'inventory_items'>, 'id' | 'name' | 'unit' | 'low_stock_threshold'> & {
+  inventory_categories?: {
+    name?: string | null;
+  } | null;
+};
+
+type InventoryStockRow = Pick<Tables<'inventory_stock'>, 'item_id' | 'current_qty' | 'last_updated'>;
+
 export async function fetchInventoryData(orgId: string): Promise<InventoryData> {
   try {
     const resolvedOrgId = requireOrgId(orgId);
@@ -46,12 +64,12 @@ export async function fetchInventoryData(orgId: string): Promise<InventoryData> 
     if (itemsError) throw itemsError;
     if (stockError) throw stockError;
 
-    const items: InventoryItem[] = (itemsData || []).map((item: any) => {
-      const itemStocks = stockData?.filter((stock: any) => stock.item_id === item.id) || [];
-      const totalStock = itemStocks.reduce((sum: number, stock: any) => sum + (stock.current_qty || 0), 0);
+    const items: InventoryItem[] = ((itemsData || []) as InventoryItemRow[]).map((item) => {
+      const itemStocks = ((stockData || []) as InventoryStockRow[]).filter((stock) => stock.item_id === item.id);
+      const totalStock = itemStocks.reduce((sum, stock) => sum + (stock.current_qty || 0), 0);
       const lastUpdated =
         itemStocks.length > 0
-          ? new Date(Math.max(...itemStocks.map((stock: any) => new Date(stock.last_updated).getTime())))
+          ? new Date(Math.max(...itemStocks.map((stock) => new Date(stock.last_updated).getTime())))
           : undefined;
 
       const categoryName = item.inventory_categories?.name?.toLowerCase() || 'other';
@@ -128,7 +146,7 @@ export async function fetchDeliveryLogs(orgId: string) {
       throw error;
     }
 
-    return data || [];
+    return (data || []) as DeliveryLog[];
   } catch (error) {
     throw toDataLayerError(error, 'Failed to fetch delivery logs.', 'inventory.fetchDeliveryLogs');
   }
@@ -165,7 +183,7 @@ export async function saveInventoryItem(input: {
       category_id: input.categoryId,
       unit: input.unit,
       low_stock_threshold: input.lowStockThreshold ?? null,
-      item_id_code: input.itemIdCode ?? null,
+      item_id_code: input.itemIdCode ?? '',
     };
 
     if (input.id) {
