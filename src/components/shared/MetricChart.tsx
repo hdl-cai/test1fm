@@ -107,7 +107,7 @@ export function MetricChart({
   };
 
   return (
-    <Card className={cn('bg-card border-border p-6 flex flex-col shadow-sm', className)}>
+    <Card className={cn('bg-card border-border p-6 flex min-w-0 flex-col shadow-sm', className)}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{title}</h3>
@@ -141,7 +141,7 @@ export function MetricChart({
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div style={{ width: '100%', height }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart

@@ -54,8 +54,8 @@ export async function fetchDashboardData(orgId: string): Promise<DashboardData> 
         initial_birds,
         status,
         batch_name,
-        farm:farms (name),
-        grower:profiles (first_name, last_name)
+        farm:farms!production_cycles_farm_id_fkey (name),
+        grower:profiles!production_cycles_grower_id_fkey (first_name, last_name)
       `)
       .eq('org_id', resolvedOrgId)
       .eq('status', 'active');
@@ -125,7 +125,7 @@ export async function fetchDashboardData(orgId: string): Promise<DashboardData> 
         vat_amount,
         created_at,
         status,
-        profiles (first_name, last_name)
+        requester:profiles!cycle_expenses_submitted_by_fkey (first_name, last_name)
       `)
       .eq('org_id', resolvedOrgId)
       .eq('status', 'pending')
@@ -141,8 +141,8 @@ export async function fetchDashboardData(orgId: string): Promise<DashboardData> 
       title: 'Expense Approval',
       description: expense.description,
       amount: expense.amount_excl_vat + (expense.vat_amount || 0),
-      requestedBy: expense.profiles
-        ? `${(expense.profiles as { first_name?: string; last_name?: string }).first_name || ''} ${(expense.profiles as { first_name?: string; last_name?: string }).last_name || ''}`.trim() || 'Unknown'
+      requestedBy: expense.requester
+        ? `${(expense.requester as { first_name?: string; last_name?: string }).first_name || ''} ${(expense.requester as { first_name?: string; last_name?: string }).last_name || ''}`.trim() || 'Unknown'
         : 'Unknown',
       requestDate: new Date(expense.created_at).toLocaleDateString(),
       priority: 'normal',

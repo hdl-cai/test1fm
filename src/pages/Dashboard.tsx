@@ -184,7 +184,7 @@ export function Dashboard() {
 
       {/* Row 1: Performance Trends + Pending Approvals */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8">
+        <div className="min-w-0 lg:col-span-8">
           <MetricChart
             title="Performance Trends"
             subtitle="Mortality % vs Feed Conversion Ratio (FCR)"
