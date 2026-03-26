@@ -95,39 +95,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    set({ isLoading: true });
-    await signOutCurrentUser();
-    useProfileStore.getState().clearProfile();
-    set({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-    });
+    set({ isLoading: true, error: null });
+    try {
+      await signOutCurrentUser();
+      useProfileStore.getState().clearProfile();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error, 'Failed to sign out.'),
+      });
+    }
   },
 
   initialize: async () => {
     // Guard: prevent duplicate initializations
     if (!get().isLoading && get().user !== null) return;
 
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
 
-    // 1. Check current session
-    const session = await getCurrentSession();
+    try {
+      // 1. Check current session
+      const session = await getCurrentSession();
 
-    if (session?.user) {
-      const profile = await loadAuthContext(session.user.id);
-      if (profile) {
-        set({
-          user: profile,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+      if (session?.user) {
+        const profile = await loadAuthContext(session.user.id);
+        if (profile) {
+          set({
+            user: profile,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
       } else {
         set({ isLoading: false });
       }
-    } else {
-      set({ isLoading: false });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error, 'Failed to initialize authentication.'),
+      });
     }
 
     // 2. Clean up any existing subscription before registering a new one
