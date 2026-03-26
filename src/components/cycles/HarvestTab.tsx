@@ -4,7 +4,7 @@ import { MetricCard, DataTablePagination } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { supabase } from '@/lib/supabase';
+import { disputeHarvestLogRecord, validateHarvestLogRecord } from '@/lib/data/cycles';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 import {
@@ -19,12 +19,22 @@ import {
 } from 'recharts';
 
 interface HarvestTabProps {
-    logs: any[];
+    logs: HarvestLogRecord[];
     cycleId: string;
     orgId: string;
     userId?: string;
     userRole?: string;
     onHarvestSaved?: () => void;
+}
+
+interface HarvestLogRecord {
+    id: string;
+    birds_harvested_count: number | null;
+    gross_weight_kg: number | null;
+    fleet_used: string | null;
+    harvest_team_notes: string | null;
+    harvest_date_start: string;
+    is_validated: boolean | null;
 }
 
 export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSaved }: HarvestTabProps) {
@@ -57,26 +67,24 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
     const handleValidate = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        const { error } = await supabase.from('harvest_logs').update({
-            is_validated: true,
-            validated_by: resolvedUserId,
-            validated_at: new Date().toISOString(),
-        }).eq('id', recordId);
-        setIsSubmitting(false);
-        if (!error) onHarvestSaved?.();
+        try {
+            await validateHarvestLogRecord({ recordId, userId: resolvedUserId });
+            onHarvestSaved?.();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleDispute = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        const { error } = await supabase.from('harvest_logs').update({
-            harvest_team_notes: `[DISPUTED] ${disputeNote}`,
-        }).eq('id', recordId);
-        setIsSubmitting(false);
-        if (!error) {
+        try {
+            await disputeHarvestLogRecord({ recordId, note: disputeNote });
             setDisputingId(null);
             setDisputeNote('');
             onHarvestSaved?.();
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -259,7 +267,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
                                                 <span className="text-micro text-muted-foreground mt-1 font-bold uppercase tracking-widest italic font-data">{((record.gross_weight_kg || 0) / 1000).toFixed(1)} MT Net</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-right text-muted-foreground font-bold text-micro tabular-nums lowercase italic font-data">{(record.gross_weight_kg / Math.max(1, record.birds_harvested_count)).toFixed(2)} kg</td>
+                                        <td className="px-6 py-5 text-right text-muted-foreground font-bold text-micro tabular-nums lowercase italic font-data">{((record.gross_weight_kg || 0) / Math.max(1, record.birds_harvested_count || 0)).toFixed(2)} kg</td>
                                         <td className="px-6 py-5 text-center">
                                             <div className="flex justify-center">
                                                 <StatusBadge

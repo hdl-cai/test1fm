@@ -21,9 +21,18 @@ import { useCyclesStore } from '@/stores/useCyclesStore';
 import { DataTablePagination, FarmFilter } from '@/components/shared';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { SupplyItemSheet } from '@/components/sheets/SupplyItemSheet';
-import { supabase } from '@/lib/supabase';
+import {
+  archiveInventoryItem,
+  type DeliveryLog,
+  fetchDeliveryLogs,
+  fetchInventoryCatalogue,
+  type InventoryCatalogueItem,
+} from '@/lib/data/inventory';
+import { getErrorMessage } from '@/lib/data/errors';
 
 type TabType = 'orders' | 'catalogue';
+
+const parseFloat = (value: string | number | null | undefined) => Number(value ?? 0);
 
 
 
@@ -47,13 +56,13 @@ export default function Inventory() {
   const { user } = useAuthStore();
 
   // Catalogue state
-  const [catalogueItems, setCatalogueItems] = React.useState<any[]>([]);
+  const [catalogueItems, setCatalogueItems] = React.useState<InventoryCatalogueItem[]>([]);
   const [isCatalogueLoading, setIsCatalogueLoading] = React.useState(false);
   const [isSupplySheetOpen, setIsSupplySheetOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<any | null>(null);
+  const [editingItem, setEditingItem] = React.useState<InventoryCatalogueItem | null>(null);
 
   // Deliveries state (replaces mockOrders)
-  const [deliveries, setDeliveries] = React.useState<any[]>([]);
+  const [deliveries, setDeliveries] = React.useState<DeliveryLog[]>([]);
   const [isDeliveriesLoading, setIsDeliveriesLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
@@ -62,31 +71,28 @@ export default function Inventory() {
   const loadCatalogue = React.useCallback(async () => {
     if (!orgId) return;
     setIsCatalogueLoading(true);
-    const { data } = await supabase
-      .from('inventory_items')
-      .select('*, inventory_categories (name)')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .order('name');
-    setCatalogueItems(data || []);
-    setIsCatalogueLoading(false);
+    try {
+      const data = await fetchInventoryCatalogue(orgId);
+      setCatalogueItems(data);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, 'Failed to load inventory catalogue.'));
+    } finally {
+      setIsCatalogueLoading(false);
+    }
   }, [orgId]);
 
   const loadDeliveries = React.useCallback(async () => {
     if (!orgId) return;
     setIsDeliveriesLoading(true);
     setLoadError(null);
-    const { data, error: fetchError } = await supabase
-      .from('delivered_inputs')
-      .select('*')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .order('delivery_date', { ascending: false });
-    if (fetchError) {
-      setLoadError(fetchError.message);
+    try {
+      const data = await fetchDeliveryLogs(orgId);
+      setDeliveries(data);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, 'Failed to load deliveries.'));
+    } finally {
+      setIsDeliveriesLoading(false);
     }
-    setDeliveries(data || []);
-    setIsDeliveriesLoading(false);
   }, [orgId]);
 
   React.useEffect(() => {
@@ -98,11 +104,12 @@ export default function Inventory() {
   }, [fetchCycles, loadCatalogue, loadDeliveries, orgId]);
 
   const handleArchiveItem = async (itemId: string) => {
-    const { error: archiveError } = await supabase
-      .from('inventory_items')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', itemId);
-    if (!archiveError) loadCatalogue();
+    try {
+      await archiveInventoryItem(itemId);
+      loadCatalogue();
+    } catch (error) {
+      setLoadError(getErrorMessage(error, 'Failed to archive inventory item.'));
+    }
   };
 
 

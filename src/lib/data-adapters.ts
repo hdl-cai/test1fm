@@ -1,7 +1,7 @@
-import type { AuthUser } from '@/stores/useAuthStore';
-import type { HealthRecord, Person, ProductionCycle, UserRole } from '@/types';
-import { USER_ROLES } from '@/types';
-import type { Tables, TablesUpdate } from '@/types/supabase';
+import type { AuthUser } from '../stores/useAuthStore.ts';
+import type { HealthRecord, Person, ProductionCycle, UserRole } from '../types/index.ts';
+import { USER_ROLES } from '../types/index.ts';
+import type { Tables, TablesUpdate } from '../types/supabase.ts';
 
 export type ProfileRow = Tables<'profiles'>;
 export type FarmAssignmentRow = Tables<'farm_assignments'>;

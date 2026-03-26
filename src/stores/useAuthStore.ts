@@ -1,8 +1,15 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import { mapProfileRowToAuthUser } from '@/lib/data-adapters';
+import {
+  getCurrentSession,
+  loadAuthUser,
+  signInWithPassword,
+  signOutCurrentUser,
+  subscribeToAuthChanges,
+} from '@/lib/data/auth';
+import { fetchProfileById, type Profile } from '@/lib/data/profile';
+import { getErrorMessage } from '@/lib/data/errors';
 import type { UserRole } from '@/types';
-import { useProfileStore, type Profile } from './useProfileStore';
+import { useProfileStore } from './useProfileStore';
 
 // Module-level subscription reference — outside the Zustand store
 // so it persists across renders and can be cleaned up properly.
@@ -33,18 +40,12 @@ export interface AuthState {
  * Reusable function to fetch profile data for a given user ID.
  */
 async function fetchUserProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error || !data) {
+  try {
+    return await fetchProfileById(userId);
+  } catch (error) {
     console.error('Error fetching user profile:', error);
     return null;
   }
-
-  return data;
 }
 
 async function loadAuthContext(userId: string) {
@@ -54,7 +55,7 @@ async function loadAuthContext(userId: string) {
   }
 
   await useProfileStore.getState().loadProfile(userId, profile);
-  return mapProfileRowToAuthUser(profile);
+  return loadAuthUser(userId);
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -65,72 +66,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email, password) => {
     set({ isLoading: true, error: null });
+    try {
+      const data = await signInWithPassword(email, password);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      if (data?.user) {
+        const profile = await loadAuthContext(data.user.id);
 
-    if (error) {
-      set({ isLoading: false, error: error.message });
-      return false;
-    }
+        if (profile) {
+          set({
+            user: profile,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+          return true;
+        }
 
-    if (data?.user) {
-      const profile = await loadAuthContext(data.user.id);
-      
-      if (profile) {
-        set({
-          user: profile,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
-        return true;
-      } else {
         set({ isLoading: false, error: 'Could not load user profile.' });
         return false;
       }
-    }
 
-    set({ isLoading: false, error: 'Sign in did not return a user session.' });
-    return false;
+      set({ isLoading: false, error: 'Sign in did not return a user session.' });
+      return false;
+    } catch (error) {
+      set({ isLoading: false, error: getErrorMessage(error, 'Failed to sign in.') });
+      return false;
+    }
   },
 
   signOut: async () => {
-    set({ isLoading: true });
-    await supabase.auth.signOut();
-    useProfileStore.getState().clearProfile();
-    set({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-    });
+    set({ isLoading: true, error: null });
+    try {
+      await signOutCurrentUser();
+      useProfileStore.getState().clearProfile();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error, 'Failed to sign out.'),
+      });
+    }
   },
 
   initialize: async () => {
     // Guard: prevent duplicate initializations
     if (!get().isLoading && get().user !== null) return;
 
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
 
-    // 1. Check current session
-    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      // 1. Check current session
+      const session = await getCurrentSession();
 
-    if (session?.user) {
-      const profile = await loadAuthContext(session.user.id);
-      if (profile) {
-        set({
-          user: profile,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+      if (session?.user) {
+        const profile = await loadAuthContext(session.user.id);
+        if (profile) {
+          set({
+            user: profile,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
       } else {
         set({ isLoading: false });
       }
-    } else {
-      set({ isLoading: false });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error, 'Failed to initialize authentication.'),
+      });
     }
 
     // 2. Clean up any existing subscription before registering a new one
@@ -140,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     // 3. Listen for auth changes (SIGNED_IN, SIGNED_OUT, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const subscription = subscribeToAuthChanges(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const existingUser = get().user;
         const loadedProfile = useProfileStore.getState().profile;

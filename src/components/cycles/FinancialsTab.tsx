@@ -11,7 +11,8 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { addCycleExpenseRecord, fetchExpenseCategories } from '@/lib/data/cycles';
+import { getErrorMessage } from '@/lib/data/errors';
 import { Sheet } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { CycleExpenseRow, DeliveredInputRow, HarvestSaleRow } from '@/lib/data-adapters';
@@ -53,13 +54,10 @@ export function FinancialsTab({
   // Fetch expense categories on mount
   React.useEffect(() => {
     async function loadCategories() {
-      const { data } = await supabase
-        .from('expense_categories')
-        .select('id, name')
-        .order('name');
-      if (data) setCategories(data);
+      const data = await fetchExpenseCategories();
+      setCategories(data);
     }
-    loadCategories();
+    void loadCategories();
   }, []);
 
   const fmtCurrency = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -104,30 +102,18 @@ export function FinancialsTab({
     setSubmitError(null);
 
     try {
-      const resolvedOrgId = authOrgId ?? orgId;
-      const resolvedUserId = authUserId ?? userId;
-      if (!resolvedOrgId || !resolvedUserId) {
-        throw new Error('You must be signed in to add a manual expense.');
-      }
-
       const amountVal = parseFloat(amount);
       if (isNaN(amountVal) || amountVal <= 0) throw new Error('Amount must be a positive number');
 
-      const { error } = await supabase
-        .from('cycle_expenses')
-        .insert({
-          org_id: resolvedOrgId,
-          cycle_id: cycle.id,
-          farm_id: cycle.farmId,
-          category_id: categoryId,
-          description: description.trim(),
-          amount_excl_vat: amountVal,
-          total_paid: amountVal,
-          submitted_by: resolvedUserId,
-          status: 'approved',
-        });
-
-      if (error) throw error;
+      await addCycleExpenseRecord({
+        orgId: authOrgId ?? orgId,
+        userId: authUserId ?? userId,
+        cycleId: cycle.id,
+        farmId: cycle.farmId,
+        categoryId,
+        description: description.trim(),
+        amount: amountVal,
+      });
 
       // Reset form
       setDescription('');
@@ -136,7 +122,7 @@ export function FinancialsTab({
       setIsAddExpenseOpen(false);
       onRefetch?.();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to add expense');
+      setSubmitError(getErrorMessage(err, 'Failed to add expense'));
     } finally {
       setIsSubmitting(false);
     }

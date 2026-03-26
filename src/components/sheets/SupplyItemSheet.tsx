@@ -9,7 +9,8 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Icon } from '@/hooks/useIcon';
-import { supabase } from '@/lib/supabase';
+import { fetchInventoryCategories, saveInventoryItem } from '@/lib/data/inventory';
+import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 interface SupplyItemSheetProps {
@@ -45,13 +46,10 @@ export function SupplyItemSheet({ isOpen, onClose, onSaved, editItem }: SupplyIt
   // Fetch categories
   React.useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('inventory_categories')
-        .select('id, name')
-        .order('name');
-      if (data) setCategories(data);
+      const data = await fetchInventoryCategories();
+      setCategories(data);
     }
-    load();
+    void load();
   }, []);
 
   // Populate form for edit mode
@@ -82,32 +80,20 @@ export function SupplyItemSheet({ isOpen, onClose, onSaved, editItem }: SupplyIt
     setError(null);
 
     try {
-      const payload = {
-        org_id: orgId,
+      await saveInventoryItem({
+        orgId,
+        id: editItem?.id,
         name: name.trim(),
-        category_id: categoryId,
+        categoryId,
         unit: unit.trim(),
-        low_stock_threshold: threshold ? parseFloat(threshold) : null,
-        item_id_code: editItem?.item_id_code || generateItemCode(),
-      };
-
-      if (editItem) {
-        const { error: updateError } = await supabase
-          .from('inventory_items')
-          .update(payload)
-          .eq('id', editItem.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('inventory_items')
-          .insert(payload);
-        if (insertError) throw insertError;
-      }
+        lowStockThreshold: threshold ? parseFloat(threshold) : null,
+        itemIdCode: editItem?.item_id_code || generateItemCode(),
+      });
 
       onSaved?.();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save supply item');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save supply item'));
     } finally {
       setIsSubmitting(false);
     }

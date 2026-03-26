@@ -63,7 +63,7 @@ export async function getFarmPersonnel(farmId: string) {
         first_name,
         last_name,
         email,
-        phone
+        contact_number
       )
     `)
     .eq('farm_id', farmId);

@@ -5,13 +5,13 @@
 
 import { create } from 'zustand';
 import {
-  mapProfileRowToPerson,
-  type PersonnelProfileRow,
-  type ProfileUpdate,
-} from '@/lib/data-adapters';
-import { supabase } from '@/lib/supabase';
+  assignPersonToFarm,
+  fetchPersonnel,
+  unassignPersonFromFarm,
+  updatePersonRecord,
+} from '@/lib/data/personnel';
+import { getErrorMessage } from '@/lib/data/errors';
 import type { Person, UserRole } from '@/types';
-import { useAuthStore } from './useAuthStore';
 
 export interface PersonnelState {
   // Data
@@ -44,24 +44,10 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
   fetchPersonnelData: async (orgId: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Fetch profiles for the organization
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          assignments:farm_assignments!farm_assignments_user_id_fkey(farm_id, role)
-        `)
-        .eq('org_id', orgId)
-        .eq('status', 'active')
-        .range(0, 199);
-
-      if (profileError) throw profileError;
-
-      const mappedPersonnel: Person[] = ((profiles || []) as PersonnelProfileRow[]).map(mapProfileRowToPerson);
-
-      set({ personnel: mappedPersonnel, isLoading: false });
+      const personnel = await fetchPersonnel(orgId);
+      set({ personnel, isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch personnel.';
+      const message = getErrorMessage(err, 'Failed to fetch personnel.');
       set({ error: message, isLoading: false });
     }
   },
@@ -70,22 +56,7 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
 
   updatePerson: async (personId, updates) => {
     try {
-      const dbUpdates: ProfileUpdate = {};
-      if (updates.name) {
-        const parts = updates.name.split(' ');
-        dbUpdates.first_name = parts[0];
-        dbUpdates.last_name = parts.slice(1).join(' ');
-      }
-      if (updates.phone) dbUpdates.contact_number = updates.phone;
-      if (updates.status) dbUpdates.status = updates.status;
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(dbUpdates)
-        .eq('id', personId);
-
-      if (error) throw error;
-
+      await updatePersonRecord(personId, updates);
       set(state => ({
         personnel: state.personnel.map(p => p.id === personId ? { ...p, ...updates } : p)
       }));
@@ -103,22 +74,7 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
     try {
       const targetUser = get().personnel.find(p => p.id === personId);
       if (!targetUser) return;
-
-      const orgId = useAuthStore.getState().user?.orgId;
-      if (!orgId) {
-        throw new Error('Organization context is required to assign a farm.');
-      }
-      
-      const { error } = await supabase
-        .from('farm_assignments')
-        .insert({
-          user_id: personId,
-          farm_id: farmId,
-          role,
-          org_id: orgId,
-        });
-
-      if (error) throw error;
+      await assignPersonToFarm({ personId, farmId, role });
 
       set(state => ({
         personnel: state.personnel.map(p => 
@@ -134,13 +90,7 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
 
   unassignFarm: async (personId, farmId) => {
     try {
-      const { error } = await supabase
-        .from('farm_assignments')
-        .delete()
-        .eq('user_id', personId)
-        .eq('farm_id', farmId);
-
-      if (error) throw error;
+      await unassignPersonFromFarm(personId, farmId);
 
       set(state => ({
         personnel: state.personnel.map(p => 
