@@ -67,19 +67,25 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
     const handleValidate = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        await validateHarvestLogRecord({ recordId, userId: resolvedUserId });
-        setIsSubmitting(false);
-        onHarvestSaved?.();
+        try {
+            await validateHarvestLogRecord({ recordId, userId: resolvedUserId });
+            onHarvestSaved?.();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleDispute = async (recordId: string) => {
         if (!resolvedUserId) return;
         setIsSubmitting(true);
-        await disputeHarvestLogRecord({ recordId, note: disputeNote });
-        setIsSubmitting(false);
-        setDisputingId(null);
-        setDisputeNote('');
-        onHarvestSaved?.();
+        try {
+            await disputeHarvestLogRecord({ recordId, note: disputeNote });
+            setDisputingId(null);
+            setDisputeNote('');
+            onHarvestSaved?.();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
