@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useProfileStore } from './useProfileStore';
 
+// Module-level subscription reference — outside the Zustand store
+// so it persists across renders and can be cleaned up properly.
+let authSubscription: { unsubscribe: () => void } | null = null;
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -47,7 +51,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
   };
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true, // starts true until initialize() resolves
@@ -98,6 +102,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: async () => {
+    // Guard: prevent duplicate initializations
+    if (!get().isLoading && get().user !== null) return;
+
     set({ isLoading: true });
 
     // 1. Check current session
@@ -121,8 +128,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: false });
     }
 
-    // 2. Listen for auth changes (SIGNED_IN, SIGNED_OUT, etc.)
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    // 2. Clean up any existing subscription before registering a new one
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+      authSubscription = null;
+    }
+
+    // 3. Listen for auth changes (SIGNED_IN, SIGNED_OUT, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         // If user is already set, we might not need to re-fetch profile/load context,
         // but it's safer to ensure profile context is loaded.
@@ -144,6 +157,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
       }
     });
+    authSubscription = subscription;
   },
 
   clearError: () => set({ error: null }),

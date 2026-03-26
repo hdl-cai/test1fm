@@ -17,6 +17,7 @@ import { Icon, type IconName } from '@/hooks/useIcon';
 import { StatusBadge } from '@/components/shared';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useCycleDetails } from '@/hooks/useCycleDetails';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Loader2 } from 'lucide-react';
 
 // Tab Components
@@ -25,13 +26,23 @@ import { HealthTab } from '@/components/cycles/HealthTab';
 import { HarvestTab } from '@/components/cycles/HarvestTab';
 import { SalesTab } from '@/components/cycles/SalesTab';
 import { DailyLogsTab } from '@/components/cycles/DailyLogsTab';
+import { WeightSamplesTab } from '@/components/cycles/WeightSamplesTab';
+import { ReconciliationTab } from '@/components/cycles/ReconciliationTab';
+import { FinancialsTab } from '@/components/cycles/FinancialsTab';
+import { DOCLoadingSheet } from '@/components/sheets/DOCLoadingSheet';
+import { DeliveryLogSheet } from '@/components/sheets/DeliveryLogSheet';
 
-type TabType = 'overview' | 'health' | 'harvest' | 'sales' | 'dailylogs';
+type TabType = 'overview' | 'health' | 'harvest' | 'sales' | 'dailylogs' | 'weightsamples' | 'financials' | 'reconciliation';
 
 export default function ProductionCycleDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState<TabType>('overview');
+  const orgId = useAuthStore((state) => state.user?.orgId);
+  const userId = useAuthStore((state) => state.user?.id) || '';
+  const userRole = useAuthStore((state) => state.user?.role) || '';
+  const [isDOCSheetOpen, setIsDOCSheetOpen] = React.useState(false);
+  const [isDeliverySheetOpen, setIsDeliverySheetOpen] = React.useState(false);
 
   const {
     cycle: cycleData,
@@ -40,8 +51,11 @@ export default function ProductionCycleDetails() {
     vaccinationSchedules,
     harvestRecords,
     salesRecords,
+    deliveredInputs,
+    cycleExpenses,
     isLoading,
     error,
+    refetch,
   } = useCycleDetails(id);
 
   const cycle = cycleData ? {
@@ -103,6 +117,9 @@ export default function ProductionCycleDetails() {
     { key: 'harvest', label: 'Harvest', icon: 'FarmIcon' },
     { key: 'sales', label: 'Sales', icon: 'Money01Icon' },
     { key: 'dailylogs', label: 'Daily Logs', icon: 'CalendarIcon' },
+    { key: 'weightsamples', label: 'Weight Samples', icon: 'Analytics01Icon' },
+    { key: 'financials', label: 'Financials', icon: 'MoneyIcon' },
+    ...(harvestRecords.length > 0 ? [{ key: 'reconciliation' as TabType, label: 'Reconciliation', icon: 'CheckCircleIcon' as IconName }] : []),
   ];
 
   return (
@@ -127,6 +144,18 @@ export default function ProductionCycleDetails() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {cycle.status === 'active' && (
+            <>
+              <Button variant="outline" onClick={() => setIsDOCSheetOpen(true)}>
+                <Icon name="PlusIcon" className="mr-2 h-4 w-4" />
+                DOC Loading
+              </Button>
+              <Button variant="outline" onClick={() => setIsDeliverySheetOpen(true)}>
+                <Icon name="PlusIcon" className="mr-2 h-4 w-4" />
+                Log Delivery
+              </Button>
+            </>
+          )}
           <Button variant="outline">
             <Icon name="EditIcon" className="mr-2 h-4 w-4" />
             Edit Cycle
@@ -159,16 +188,60 @@ export default function ProductionCycleDetails() {
             <HealthTab healthRecords={healthRecords} vaccinationSchedules={vaccinationSchedules} />
           </TabsContent>
           <TabsContent value="harvest" className="mt-0">
-            <HarvestTab logs={harvestRecords} />
+            <HarvestTab logs={harvestRecords} cycleId={id!} orgId={orgId || ''} userId={userId} userRole={userRole} onHarvestSaved={refetch} />
           </TabsContent>
           <TabsContent value="sales" className="mt-0">
             <SalesTab records={salesRecords} />
           </TabsContent>
           <TabsContent value="dailylogs" className="mt-0">
-            <DailyLogsTab logs={dailyLogs} />
+            <DailyLogsTab logs={dailyLogs} cycleId={id!} orgId={orgId || ''} onLogSaved={refetch} />
           </TabsContent>
+          <TabsContent value="weightsamples" className="mt-0">
+            <WeightSamplesTab logs={dailyLogs} />
+          </TabsContent>
+          <TabsContent value="financials" className="mt-0">
+            <FinancialsTab
+              cycle={cycle}
+              salesRecords={salesRecords}
+              deliveredInputs={deliveredInputs}
+              cycleExpenses={cycleExpenses}
+              orgId={orgId || ''}
+              userId={userId}
+              onRefetch={refetch}
+            />
+          </TabsContent>
+          {harvestRecords.length > 0 && (
+            <TabsContent value="reconciliation" className="mt-0">
+              <ReconciliationTab
+                cycle={cycle}
+                dailyLogs={dailyLogs}
+                harvestRecords={harvestRecords}
+                salesRecords={salesRecords}
+                deliveredInputs={deliveredInputs}
+                cycleExpenses={cycleExpenses}
+                orgId={orgId || ''}
+                userId={userId}
+                onCycleClosed={refetch}
+              />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
+      <DOCLoadingSheet
+        isOpen={isDOCSheetOpen}
+        onClose={() => setIsDOCSheetOpen(false)}
+        cycleId={id!}
+        orgId={orgId || ''}
+        onSaved={refetch}
+      />
+      <DeliveryLogSheet
+        isOpen={isDeliverySheetOpen}
+        onClose={() => setIsDeliverySheetOpen(false)}
+        cycleId={id!}
+        farmId={cycle.farmId}
+        orgId={orgId || ''}
+        onSaved={refetch}
+      />
     </div>
   );
 }

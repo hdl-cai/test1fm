@@ -4,6 +4,8 @@ import { MetricCard, DataTablePagination } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Icon } from '@/hooks/useIcon';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/useAuthStore';
 import {
     AreaChart,
     Area,
@@ -16,11 +18,62 @@ import {
 
 interface DailyLogsTabProps {
     logs: any[];
+    cycleId: string;
+    orgId: string;
+    onLogSaved?: () => void;
 }
 
-export function DailyLogsTab({ logs }: DailyLogsTabProps) {
+export function DailyLogsTab({ logs, cycleId, orgId, onLogSaved }: DailyLogsTabProps) {
     const [isAddingLog, setIsAddingLog] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const userId = useAuthStore((state) => state.user?.id);
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Controlled form state for the inline log entry form
+    const [logForm, setLogForm] = useState({
+        mortalityCount: '',
+        culledCount: '',
+        feedUsedKg: '',
+        avgTempC: '',
+        avgHumidityPct: '',
+    });
+    const handleSubmitLog = async () => {
+        if (!logForm.feedUsedKg) return; // Feed is the minimum required field
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const { error } = await supabase
+                .from('daily_logs')
+                .insert({
+                    org_id: orgId,
+                    cycle_id: cycleId,
+                    log_date: today,
+                    mortality_count: parseInt(logForm.mortalityCount) || 0,
+                    culled_count: parseInt(logForm.culledCount) || 0,
+                    feed_used_kg: parseFloat(logForm.feedUsedKg) || 0,
+                    avg_temp_c: logForm.avgTempC ? parseFloat(logForm.avgTempC) : null,
+                    avg_humidity_pct: logForm.avgHumidityPct ? parseFloat(logForm.avgHumidityPct) : null,
+                    submitted_by: userId!,
+                    entry_type: 'grower_entry',
+                    status: 'submitted',
+                });
+
+            if (error) throw error;
+
+            // Reset form and close
+            setLogForm({ mortalityCount: '', culledCount: '', feedUsedKg: '', avgTempC: '', avgHumidityPct: '' });
+            setIsAddingLog(false);
+            onLogSaved?.();
+        } catch (err: any) {
+            setSubmitError(err.message || 'Failed to save log. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const itemsPerPage = 10;
     const totalPages = Math.ceil(logs.length / itemsPerPage);
     const paginatedLogs = logs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -165,19 +218,41 @@ export function DailyLogsTab({ logs }: DailyLogsTabProps) {
                             </>
                         ) : (
                             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                                {submitError && (
+                                    <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+                                        {submitError}
+                                    </div>
+                                )}
                                 <div className="space-y-3">
                                     <div className="relative group">
                                         <Input
                                             type="number"
                                             placeholder="Mortality Count"
+                                            value={logForm.mortalityCount}
+                                            onChange={(e) => setLogForm({ ...logForm, mortalityCount: e.target.value })}
                                             className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 rounded-xl"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div className="relative group">
+                                        <Input
+                                            type="number"
+                                            placeholder="Culled Count"
+                                            value={logForm.culledCount}
+                                            onChange={(e) => setLogForm({ ...logForm, culledCount: e.target.value })}
+                                            className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 rounded-xl"
+                                            min="0"
                                         />
                                     </div>
                                     <div className="relative group">
                                         <Input
                                             type="number"
                                             placeholder="Feed Consumed (kg)"
+                                            value={logForm.feedUsedKg}
+                                            onChange={(e) => setLogForm({ ...logForm, feedUsedKg: e.target.value })}
                                             className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 rounded-xl"
+                                            min="0"
+                                            step="any"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
@@ -185,31 +260,44 @@ export function DailyLogsTab({ logs }: DailyLogsTabProps) {
                                             <Input
                                                 type="number"
                                                 placeholder="Temp (°C)"
+                                                value={logForm.avgTempC}
+                                                onChange={(e) => setLogForm({ ...logForm, avgTempC: e.target.value })}
                                                 className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 rounded-xl"
+                                                step="any"
                                             />
                                         </div>
                                         <div className="relative group">
                                             <Input
                                                 type="number"
                                                 placeholder="Humidity (%)"
+                                                value={logForm.avgHumidityPct}
+                                                onChange={(e) => setLogForm({ ...logForm, avgHumidityPct: e.target.value })}
                                                 className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 rounded-xl"
+                                                step="any"
                                             />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex gap-3 pt-2">
                                     <Button
-                                        onClick={() => setIsAddingLog(false)}
+                                        onClick={() => { setIsAddingLog(false); setSubmitError(null); }}
                                         variant="outline"
                                         className="flex-1 h-11 font-bold border-border/50 rounded-xl"
+                                        disabled={isSubmitting}
                                     >
                                         Cancel
                                     </Button>
                                     <Button
-                                        onClick={() => setIsAddingLog(false)}
+                                        onClick={handleSubmitLog}
+                                        disabled={isSubmitting}
                                         className="flex-1 h-11 font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
                                     >
-                                        Save Log
+                                        {isSubmitting ? (
+                                            <div className="flex items-center gap-2">
+                                                <Icon name="CycleIcon" size={14} className="animate-spin" />
+                                                Saving...
+                                            </div>
+                                        ) : 'Save Log'}
                                     </Button>
                                 </div>
                             </div>

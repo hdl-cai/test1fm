@@ -6,22 +6,19 @@ import { Button } from '@/components/ui/button';
 import { PageTitle } from '@/components/ui/page-title';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  BonusCalculator,
-  GrowerTable,
-  FinancialTrendChart,
+  // V2: BonusCalculator, GrowerTable, FinancialTrendChart, TopGrowers, GrowerStats quarantined
   CostDistributionChart,
   KPIGrid,
   ProductionCharts,
-  TopGrowers,
-  GrowerStats,
 } from '@/components/performance';
+import { formatPHP } from '@/lib/utils';
 
-type TabType = 'economics' | 'grower' | 'production';
+type TabType = 'economics' | 'production';
 
 export default function Performance() {
   const { user } = useAuthStore();
-  const { stats, leaderboard, isLoading, fetchPerformanceData, financialHistory } = usePerformanceStore();
-  const [activeTab, setActiveTab] = useState<TabType>('grower');
+  const { stats, isLoading, fetchPerformanceData, financialHistory } = usePerformanceStore();
+  const [activeTab, setActiveTab] = useState<TabType>('production');
 
   const totalProfit = useMemo(() => {
     return financialHistory.reduce((sum, h) => sum + h.profit, 0);
@@ -33,13 +30,7 @@ export default function Performance() {
     }
   }, [user?.orgId, fetchPerformanceData]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+
 
   // Dynamic Header Content based on active tab
   const headerData = useMemo(() => {
@@ -48,11 +39,6 @@ export default function Performance() {
         return {
           title: "Performance",
           description: "FCR trends, mortality rates, and efficiency metrics."
-        };
-      case 'grower':
-        return {
-          title: "Grower Rankings",
-          description: "Grower rankings, benchmarking, and bonus eligibility."
         };
       case 'economics':
       default:
@@ -94,10 +80,6 @@ export default function Performance() {
         {/* Tab Navigation - Line Style */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full">
           <LineTabsList className="w-fit border-b-0">
-            <LineTabsTrigger value="grower">
-              <Icon name="LeaderboardIcon" size={16} />
-              Grower Performance
-            </LineTabsTrigger>
             <LineTabsTrigger value="production">
               <Icon name="Analytics01Icon" size={16} />
               Production Analytics
@@ -106,6 +88,7 @@ export default function Performance() {
               <Icon name="Money01Icon" size={16} />
               Financials
             </LineTabsTrigger>
+            {/* V2: Grower Performance tab quarantined */}
           </LineTabsList>
 
           {/* Tab Content */}
@@ -116,16 +99,7 @@ export default function Performance() {
             </div>
           </TabsContent>
 
-          <TabsContent value="grower" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-[500px] mt-6">
-            <div className="space-y-10">
-              <TopGrowers entries={leaderboard.slice(0, 3)} />
-              <GrowerStats stats={stats} />
-              <GrowerTable />
-              <div className="bg-card border border-border rounded-3xl overflow-hidden">
-                <BonusCalculator growers={leaderboard} className="bg-card border-none" />
-              </div>
-            </div>
-          </TabsContent>
+          {/* V2: Grower tab quarantined (TopGrowers, GrowerStats, GrowerTable, BonusCalculator) */}
 
           <TabsContent value="economics" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-[500px] mt-6">
             {/* Economic tab still uses some local logic/data but wired to main state where possible */}
@@ -134,7 +108,7 @@ export default function Performance() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="p-6 bg-card border border-border rounded-xl">
                       <h4 className="text-micro font-bold text-muted-foreground uppercase tracking-widest mb-2">Total Profit</h4>
-                      <div className="text-2xl font-black text-foreground">{formatCurrency(totalProfit)}</div>
+                      <div className="text-2xl font-black text-foreground">{formatPHP(totalProfit)}</div>
                       <div className="flex items-center gap-1.5 mt-2">
                         <span className="text-success text-[10px] font-bold">Live</span>
                         <span className="text-muted-foreground text-[10px]">Lifetime net payout</span>
@@ -149,8 +123,10 @@ export default function Performance() {
                       </div>
                   </div>
                 </div>
-                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                  <FinancialTrendChart />
+                {/* V2: FinancialTrendChart quarantined */}
+                <div className="p-8 text-center text-muted-foreground">
+                  <p className="text-xs font-bold uppercase tracking-widest">Financial Trend Analysis</p>
+                  <p className="text-micro mt-1">Coming in v2</p>
                 </div>
               </div>
               <div className="space-y-8">

@@ -46,7 +46,8 @@ export const usePersonnelStore = create<PersonnelState>((set, get) => ({
           assignments:farm_assignments!farm_assignments_user_id_fkey(farm_id, role)
         `)
         .eq('org_id', orgId)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .range(0, 199);
 
       if (profileError) throw profileError;
 

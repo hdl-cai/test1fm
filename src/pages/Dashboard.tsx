@@ -17,7 +17,7 @@ import { PageTitle } from '@/components/ui/page-title';
 import { TableHeader } from '@/components/ui/table-header';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { cn } from '@/lib/utils';
+import { cn, formatPHP } from '@/lib/utils';
 import { Icon } from '@/hooks/useIcon';
 import { Loader2 } from 'lucide-react';
 
@@ -49,14 +49,7 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+
 
 // ============================================================================
 // Dashboard Component
@@ -177,7 +170,7 @@ export function Dashboard() {
         />
         <MetricCard
           title="Projected Revenue"
-          value={formatCurrency(stats.totalBirds * 1.8 * 100)}
+          value={formatPHP(stats.totalBirds * 1.8 * 100)}
           subtitle="Based on current active cycles"
           icon="MoneyIcon"
           iconColor="var(--primary)"

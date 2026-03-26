@@ -26,7 +26,7 @@ export interface CyclesState {
   setCycles: (cycles: ProductionCycle[]) => void;
   selectCycle: (cycleId: string | null) => void;
   updateCycle: (cycleId: string, updates: Partial<ProductionCycle>) => void;
-  addCycle: (cycle: Omit<ProductionCycle, 'id' | 'mortalityRate' | 'feedConsumed' | 'currentFeedStock' | 'fcr' | 'averageWeight'>) => void;
+  createCycle: (data: { batchName: string; farmId: string; growerId: string; birdCount: number; startDate: string; anticipatedHarvestDate: string; orgId: string }) => Promise<void>;
   completeCycle: (cycleId: string, finalData: { averageWeight: number; revenue: number; cost: number }) => void;
   
   // Selectors
@@ -61,7 +61,8 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
           farms (name),
           performance_metrics (fcr_to_date, livability_pct)
         `)
-        .eq('org_id', orgId);
+        .eq('org_id', orgId)
+        .range(0, 199);
 
       if (error) throw error;
 
@@ -127,17 +128,31 @@ export const useCyclesStore = create<CyclesState>((set, get) => ({
     ),
   })),
   
-  addCycle: (cycleData) => set((state) => {
-    const newCycle: ProductionCycle = {
-      ...cycleData,
-      id: `cycle-${String(state.cycles.length + 1).padStart(3, '0')}`,
-      mortalityRate: 0,
-      feedConsumed: 0,
-      currentFeedStock: 0,
-      status: 'pending',
-    };
-    return { cycles: [...state.cycles, newCycle] };
-  }),
+  createCycle: async ({ batchName, farmId, growerId, birdCount, startDate, anticipatedHarvestDate, orgId }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('production_cycles')
+        .insert({
+          org_id: orgId,
+          farm_id: farmId,
+          grower_id: growerId,
+          batch_name: batchName,
+          initial_birds: birdCount,
+          start_date: startDate,
+          anticipated_harvest_date: anticipatedHarvestDate,
+          status: 'active',
+        });
+
+      if (error) throw error;
+
+      // Re-fetch cycles to get the server-generated ID and updated list
+      await get().fetchCycles(orgId);
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
   
   completeCycle: (cycleId, finalData) => set((state) => ({
     cycles: state.cycles.map(cycle => 
