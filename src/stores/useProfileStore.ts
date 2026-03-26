@@ -8,6 +8,7 @@ type OrgSettings = Database['public']['Tables']['org_settings']['Row'];
 interface ProfileState {
   profile: Profile | null;
   orgSettings: OrgSettings | null;
+  isSingleUser: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -20,6 +21,7 @@ interface ProfileState {
 export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
   orgSettings: null,
+  isSingleUser: false,
   isLoading: false,
   error: null,
 
@@ -50,9 +52,20 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         }
       }
 
+      // 3. Count org members to determine single-user mode
+      let isSingleUser = false;
+      if (profile.org_id) {
+        const { count } = await supabase
+          .from('org_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id', profile.org_id);
+        isSingleUser = (count ?? 0) <= 1;
+      }
+
       set({ 
         profile, 
-        orgSettings, 
+        orgSettings,
+        isSingleUser,
         isLoading: false 
       });
     } catch (err: any) {
@@ -80,5 +93,5 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
 
-  clearProfile: () => set({ profile: null, orgSettings: null, error: null }),
+  clearProfile: () => set({ profile: null, orgSettings: null, isSingleUser: false, error: null }),
 }));

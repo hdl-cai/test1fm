@@ -26,7 +26,7 @@ export interface FarmsState {
   setFarms: (farms: Farm[]) => void;
   selectFarm: (farmId: string | null) => void;
   updateFarm: (farmId: string, updates: Partial<Farm>) => void;
-  addFarm: (farm: Omit<Farm, 'id' | 'lastUpdated'>) => void;
+  createFarm: (data: { name: string; region: string; capacity: number; houseCount?: number; lat?: number; lng?: number; orgId: string }) => Promise<void>;
   
   // Selectors
   getFarmById: (farmId: string) => Farm | undefined;
@@ -67,7 +67,8 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
       const { data: farmsData, error: farmsError } = await supabase
         .from('farms')
         .select('*')
-        .eq('org_id', orgId);
+        .eq('org_id', orgId)
+        .range(0, 199);
 
       if (farmsError) throw farmsError;
 
@@ -206,14 +207,32 @@ export const useFarmsStore = create<FarmsState>((set, get) => ({
     ),
   })),
   
-  addFarm: (farmData) => set((state) => {
-    const newFarm: Farm = {
-      ...farmData,
-      id: `farm-${String(state.farms.length + 1).padStart(3, '0')}`,
-      lastUpdated: new Date(),
-    };
-    return { farms: [...state.farms, newFarm] };
-  }),
+  createFarm: async ({ name, region, capacity, houseCount, lat, lng, orgId }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('farms')
+        .insert({
+          org_id: orgId,
+          farm_id_code: name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
+          name,
+          region,
+          capacity,
+          house_count: houseCount ?? 1,
+          location_lat: lat ?? null,
+          location_lng: lng ?? null,
+          status: 'active',
+        });
+
+      if (error) throw error;
+
+      // Re-fetch farms to get the server-generated ID and updated list
+      await get().fetchFarms(orgId);
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err; // Re-throw so the calling component can handle it
+    }
+  },
   
   // Selectors
   getFarmById: (farmId) => get().farms.find(f => f.id === farmId),

@@ -14,7 +14,7 @@ import { Icon } from '@/hooks/useIcon';
 import { useFarmsStore } from '@/stores/useFarmsStore';
 import { usePersonnelStore } from '@/stores/usePersonnelStore';
 import { useCyclesStore } from '@/stores/useCyclesStore';
-import type { ProductionCycle } from '@/types';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 interface NewCycleSheetProps {
   isOpen: boolean;
@@ -28,9 +28,10 @@ const calculateEndDate = (startDate: string) => {
 };
 
 export function NewCycleSheet({ isOpen, onClose }: NewCycleSheetProps) {
-  const addCycle = useCyclesStore((state) => state.addCycle);
+  const createCycle = useCyclesStore((state) => state.createCycle);
   const farms = useFarmsStore((state) => state.farms);
   const allPersonnel = usePersonnelStore((state) => state.personnel);
+  const orgId = useAuthStore((state) => state.user?.orgId);
   const growers = React.useMemo(() =>
     allPersonnel.filter(p => p.role === 'grower'),
     [allPersonnel]
@@ -46,6 +47,7 @@ export function NewCycleSheet({ isOpen, onClose }: NewCycleSheetProps) {
     initialFeedStock: '',
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (formData.startDate && !formData.expectedEndDate) {
@@ -61,36 +63,34 @@ export function NewCycleSheet({ isOpen, onClose }: NewCycleSheetProps) {
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await createCycle({
+        batchName: formData.batchName,
+        farmId: formData.farmId,
+        growerId: formData.growerId,
+        birdCount: parseInt(formData.birdCount, 10),
+        startDate: formData.startDate,
+        anticipatedHarvestDate: formData.expectedEndDate,
+        orgId: orgId!,
+      });
 
-    const newCycleData: Omit<ProductionCycle, 'id'> = {
-      batchName: formData.batchName,
-      farmId: formData.farmId,
-      growerId: formData.growerId,
-      birdCount: parseInt(formData.birdCount, 10),
-      startDate: new Date(formData.startDate),
-      expectedEndDate: new Date(formData.expectedEndDate),
-      status: 'active',
-      mortalityRate: 0,
-      feedConsumed: 0,
-      currentFeedStock: parseInt(formData.initialFeedStock, 10) || 0,
-    };
-
-    addCycle(newCycleData);
-
-    setFormData({
-      batchName: '',
-      farmId: '',
-      growerId: '',
-      birdCount: '',
-      startDate: new Date().toISOString().split('T')[0],
-      expectedEndDate: '',
-      initialFeedStock: '',
-    });
-
-    setIsSubmitting(false);
-    onClose();
+      setFormData({
+        batchName: '',
+        farmId: '',
+        growerId: '',
+        birdCount: '',
+        startDate: new Date().toISOString().split('T')[0],
+        expectedEndDate: '',
+        initialFeedStock: '',
+      });
+      onClose();
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to create cycle. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -115,6 +115,11 @@ export function NewCycleSheet({ isOpen, onClose }: NewCycleSheetProps) {
       width="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {submitError && (
+          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
+            {submitError}
+          </div>
+        )}
         {/* Batch Name */}
         <div className="space-y-2">
           <Label htmlFor="batch-name" className="text-micro font-bold uppercase tracking-[0.2em] text-muted-foreground/70">

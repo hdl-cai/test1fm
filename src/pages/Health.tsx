@@ -1,3 +1,4 @@
+// FLOCKMATE V2 — This feature is planned for v2. Not active in v1.
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PageTitle } from '@/components/ui/page-title';

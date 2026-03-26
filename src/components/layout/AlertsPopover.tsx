@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
-import { mockAlerts } from '@/data/alerts';
 import type { Alert } from '@/components/shared/AlertCard';
+
+// TODO: Replace with real alerts from Supabase
+const alerts: Alert[] = [];
 
 export function AlertsPopover() {
     const [open, setOpen] = React.useState(false);
-    const unreadCount = mockAlerts.length;
+    const unreadCount = alerts.length;
 
     const getAlertStyles = (type: Alert['type']) => {
         switch (type) {
@@ -84,7 +86,7 @@ export function AlertsPopover() {
 
                 <ScrollArea className="h-[400px]">
                     <div className="p-3 space-y-2">
-                        {mockAlerts.map((alert) => {
+                        {alerts.map((alert: Alert) => {
                             const styles = getAlertStyles(alert.type);
                             return (
                                 <div

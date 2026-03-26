@@ -10,6 +10,8 @@ export function useCycleDetails(cycleId: string | undefined) {
   const [vaccinationSchedules, setVaccinationSchedules] = useState<any[]>([]);
   const [harvestRecords, setHarvestRecords] = useState<any[]>([]);
   const [salesRecords, setSalesRecords] = useState<any[]>([]);
+  const [deliveredInputs, setDeliveredInputs] = useState<any[]>([]);
+  const [cycleExpenses, setCycleExpenses] = useState<any[]>([]);
 
   const fetchDetails = useCallback(async () => {
     if (!cycleId) return;
@@ -88,6 +90,27 @@ export function useCycleDetails(cycleId: string | undefined) {
       
       if (!salesError) setSalesRecords(sales || []);
 
+      // 7. Fetch delivered inputs (for feed/supply reconciliation)
+      const { data: inputs, error: inputsError } = await supabase
+        .from('delivered_inputs')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .order('delivery_date', { ascending: true });
+
+      if (!inputsError) setDeliveredInputs(inputs || []);
+
+      // 8. Fetch cycle expenses
+      const { data: expenses, error: expensesError } = await supabase
+        .from('cycle_expenses')
+        .select(`
+          *,
+          expense_categories (name)
+        `)
+        .eq('cycle_id', cycleId)
+        .order('created_at', { ascending: false });
+
+      if (!expensesError) setCycleExpenses(expenses || []);
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -106,6 +129,8 @@ export function useCycleDetails(cycleId: string | undefined) {
     vaccinationSchedules,
     harvestRecords,
     salesRecords,
+    deliveredInputs,
+    cycleExpenses,
     isLoading,
     error,
     refetch: fetchDetails

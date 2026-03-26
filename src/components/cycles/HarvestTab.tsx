@@ -1,7 +1,10 @@
 import * as React from 'react';
+import { HarvestLogSheet } from '@/components/sheets/HarvestLogSheet';
 import { MetricCard, DataTablePagination } from '@/components/shared';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/hooks/useIcon';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { supabase } from '@/lib/supabase';
 
 import {
     BarChart,
@@ -16,10 +19,19 @@ import {
 
 interface HarvestTabProps {
     logs: any[];
+    cycleId: string;
+    orgId: string;
+    userId?: string;
+    userRole?: string;
+    onHarvestSaved?: () => void;
 }
 
-export function HarvestTab({ logs }: HarvestTabProps) {
+export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSaved }: HarvestTabProps) {
     const [currentPage, setCurrentPage] = React.useState(1);
+    const [isHarvestSheetOpen, setIsHarvestSheetOpen] = React.useState(false);
+    const [disputingId, setDisputingId] = React.useState<string | null>(null);
+    const [disputeNote, setDisputeNote] = React.useState('');
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
     const itemsPerPage = 10;
     const totalPages = Math.ceil(logs.length / itemsPerPage);
     const paginatedRecords = logs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -33,9 +45,47 @@ export function HarvestTab({ logs }: HarvestTabProps) {
         { name: 'Harvested', value: totalHarvested, color: '#1DB954' },
     ];
 
+    const canVerify = userRole === 'admin' || userRole === 'owner' || userRole === 'grower';
+
+    const handleValidate = async (recordId: string) => {
+        if (!userId) return;
+        setIsSubmitting(true);
+        const { error } = await supabase.from('harvest_logs').update({
+            is_validated: true,
+            validated_by: userId,
+            validated_at: new Date().toISOString(),
+        }).eq('id', recordId);
+        setIsSubmitting(false);
+        if (!error) onHarvestSaved?.();
+    };
+
+    const handleDispute = async (recordId: string) => {
+        if (!userId) return;
+        setIsSubmitting(true);
+        const { error } = await supabase.from('harvest_logs').update({
+            harvest_team_notes: `[DISPUTED] ${disputeNote}`,
+        }).eq('id', recordId);
+        setIsSubmitting(false);
+        if (!error) {
+            setDisputingId(null);
+            setDisputeNote('');
+            onHarvestSaved?.();
+        }
+    };
+
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
             {/* Quick Metrics */}
+            <div className="flex items-center justify-between mb-2">
+                <div />
+                <Button
+                    onClick={() => setIsHarvestSheetOpen(true)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 h-10 px-6 rounded-lg transition-colors group"
+                >
+                    <Icon name="PlusIcon" size={16} className="mr-2" />
+                    Log Harvest
+                </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <MetricCard
                     title="Final Bird Count"
@@ -182,6 +232,7 @@ export function HarvestTab({ logs }: HarvestTabProps) {
                                     <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Avg Weight</th>
                                     <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-center">Validated</th>
                                     <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest">Remarks</th>
+                                    {canVerify && <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-center">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
@@ -212,6 +263,36 @@ export function HarvestTab({ logs }: HarvestTabProps) {
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 text-muted-foreground text-micro font-bold uppercase tracking-widest italic">{record.harvest_team_notes || 'No notes available'}</td>
+                                        {canVerify && (
+                                            <td className="px-6 py-5 text-center">
+                                                {record.is_validated ? (
+                                                    <span className="text-micro text-success font-bold uppercase tracking-widest">✓ Verified</span>
+                                                ) : disputingId === record.id ? (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={disputeNote}
+                                                            onChange={(e) => setDisputeNote(e.target.value)}
+                                                            placeholder="Dispute reason..."
+                                                            className="w-40 h-8 text-xs px-2 border border-border rounded-lg bg-muted/30 text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary"
+                                                        />
+                                                        <div className="flex gap-1">
+                                                            <Button size="sm" variant="destructive" className="h-7 text-micro px-2" onClick={() => handleDispute(record.id)} disabled={isSubmitting || !disputeNote.trim()}>Confirm</Button>
+                                                            <Button size="sm" variant="ghost" className="h-7 text-micro px-2" onClick={() => { setDisputingId(null); setDisputeNote(''); }}>Cancel</Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex justify-center gap-1">
+                                                        <Button size="sm" className="h-7 text-micro px-3 bg-success hover:bg-success/90 text-white" onClick={() => handleValidate(record.id)} disabled={isSubmitting}>
+                                                            <Icon name="CheckmarkCircle01Icon" size={12} className="mr-1" />Verify
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-micro px-3 text-danger border-danger/30 hover:bg-danger/10" onClick={() => setDisputingId(record.id)} disabled={isSubmitting}>
+                                                            <Icon name="AlertCircleIcon" size={12} className="mr-1" />Dispute
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -228,6 +309,13 @@ export function HarvestTab({ logs }: HarvestTabProps) {
                     itemName="Harvest Record"
                 />
             </div>
+            <HarvestLogSheet
+                isOpen={isHarvestSheetOpen}
+                onClose={() => setIsHarvestSheetOpen(false)}
+                cycleId={cycleId}
+                orgId={orgId}
+                onSaved={onHarvestSaved}
+            />
         </div >
     );
 }

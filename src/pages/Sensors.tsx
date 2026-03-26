@@ -1,3 +1,4 @@
+// FLOCKMATE V2 — This feature is planned for v2. Not active in v1.
 /**
  * Sensors Page
  * 
@@ -13,8 +14,7 @@ import { Input } from '@/components/ui/input';
 import { PageTitle } from '@/components/ui/page-title';
 import { TableHeader } from '@/components/ui/table-header';
 import { MetricCard, DataTablePagination, FarmFilter, StatusBadge } from '@/components/shared';
-import { AddSensorSheet } from '@/components/sheets/AddSensorSheet';
-import { AlertConfigSheet } from '@/components/sheets/AlertConfigSheet';
+
 import { MetricChart } from '@/components/shared/MetricChart';
 import { useSensorsStore } from '@/stores/useSensorsStore';
 import { useFarmsStore } from '@/stores/useFarmsStore';
@@ -220,8 +220,7 @@ export default function Sensors() {
   const [selectedFarm, setSelectedFarm] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [isAddSensorOpen, setIsAddSensorOpen] = React.useState(false);
-  const [isAlertConfigOpen, setIsAlertConfigOpen] = React.useState(false);
+
   const itemsPerPage = 8;
 
   const sensors = useSensorsStore((state) => state.sensors);
@@ -267,8 +266,8 @@ export default function Sensors() {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => setIsAlertConfigOpen(true)}
             className="active:scale-95 group"
+            disabled
           >
             <Icon name="NotificationIcon" className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             Alert Settings
@@ -368,8 +367,8 @@ export default function Sensors() {
             </div>
 
             <Button
-              onClick={() => setIsAddSensorOpen(true)}
               className="h-9 rounded-lg active:scale-95 whitespace-nowrap"
+              disabled
             >
               <Icon name="PlusSignIcon" className="mr-2 h-4 w-4" />
               Add Sensor
@@ -392,9 +391,7 @@ export default function Sensors() {
         />
       </div>
 
-      {/* Sheets */}
-      <AddSensorSheet isOpen={isAddSensorOpen} onClose={() => setIsAddSensorOpen(false)} />
-      <AlertConfigSheet isOpen={isAlertConfigOpen} onClose={() => setIsAlertConfigOpen(false)} />
+
     </div>
   );
 }

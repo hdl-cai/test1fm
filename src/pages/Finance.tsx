@@ -4,36 +4,30 @@
  * Main page for financial management. Displays:
  * - Overview: Summary cards, recent transactions
  * - Expenses: Expense table with categories
- * - Payroll: Payroll table, status badges
- * - CashAdvance: Requests table with approve/reject actions
  */
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PageTitle } from '@/components/ui/page-title';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ReviewPayslipSheet, SettlementStatementSheet } from '@/components/sheets';
+import { SettlementStatementSheet } from '@/components/sheets';
 import { FinanceOverview } from '@/components/finance/FinanceOverview';
 import { ExpenseTable } from '@/components/finance/ExpenseTable';
 import { ReceiptViewer } from '@/components/finance/ReceiptViewer';
-import { PayrollStats } from '@/components/finance/PayrollStats';
-import { PayrollRecordTable } from '@/components/finance/PayrollRecordTable';
-import { CashAdvanceTable } from '@/components/finance/CashAdvanceTable';
-import { CashAdvanceReviewSheet } from '@/components/finance/CashAdvanceReviewSheet';
+// V2: PayrollStats, PayrollRecordTable, CashAdvanceTable, CashAdvanceReviewSheet quarantined
 import {
   ArrowDown01Icon,
-  Money01Icon,
   Download01Icon,
   DashboardIcon,
-  UserGroupIcon
 } from '@/hooks/useIcon';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { formatPHP } from '@/lib/utils';
 import { useCyclesStore } from '@/stores/useCyclesStore';
 import { useFinanceStore } from '@/stores/useFinanceStore';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { Transaction } from '@/types';
 
-type TabType = 'overview' | 'expenses' | 'payroll' | 'cashadvance';
+type TabType = 'overview' | 'expenses';
 
 
 
@@ -43,22 +37,15 @@ export default function Finance() {
   const { fetchCycles, cycles } = useCyclesStore();
   const { 
     transactions, 
-    payrollRecords, 
-    cashAdvances, 
     isLoading, 
     error, 
     fetchFinanceData,
     totalIncome,
-    updateAdvanceStatus
   } = useFinanceStore();
 
   const [activeTab, setActiveTab] = React.useState<TabType>('overview');
-  const [selectedPayslip, setSelectedPayslip] = React.useState<any>(null);
-  const [isPayslipSheetOpen, setIsPayslipSheetOpen] = React.useState(false);
   const [selectedExpense, setSelectedExpense] = React.useState<Transaction | null>(null);
   const [isReceiptViewerOpen, setIsReceiptViewerOpen] = React.useState(false);
-  const [selectedAdvance, setSelectedAdvance] = React.useState<any>(null);
-  const [isAdvanceReviewOpen, setIsAdvanceReviewOpen] = React.useState(false);
   const [isAuditSheetOpen, setIsAuditSheetOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -94,7 +81,7 @@ export default function Finance() {
               <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
               <span className="text-muted-foreground uppercase tracking-widest">Liquidity:</span>
               <span className="text-success font-mono">
-                {new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(totalIncome)}
+                {formatPHP(totalIncome)}
               </span>
             </div>
             <Button variant="outline" className="h-10 px-4 active:scale-95 group">
@@ -116,14 +103,7 @@ export default function Finance() {
             <ArrowDown01Icon size={14} />
             Expenses
           </LineTabsTrigger>
-          <LineTabsTrigger value="payroll">
-            <UserGroupIcon size={14} />
-            Payroll
-          </LineTabsTrigger>
-          <LineTabsTrigger value="cashadvance">
-            <Money01Icon size={14} />
-            Cash Advance
-          </LineTabsTrigger>
+          {/* V2: Payroll and Cash Advance tabs quarantined */}
         </LineTabsList>
 
         {/* Tab Content Section */}
@@ -142,28 +122,7 @@ export default function Finance() {
           />
         </TabsContent>
 
-        <TabsContent value="payroll" className="animate-in fade-in duration-300 mt-6">
-          <div className="space-y-6">
-            <PayrollStats />
-            <PayrollRecordTable
-              records={payrollRecords}
-              onViewPayslip={(record) => {
-                setSelectedPayslip(record);
-                setIsPayslipSheetOpen(true);
-              }}
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="cashadvance" className="animate-in fade-in duration-300 mt-6">
-          <CashAdvanceTable
-            advances={cashAdvances}
-            onReview={(advance) => {
-              setSelectedAdvance(advance);
-              setIsAdvanceReviewOpen(true);
-            }}
-          />
-        </TabsContent>
+        {/* V2: Payroll and CashAdvance TabsContent quarantined */}
       </Tabs>
 
       {isLoading && (
@@ -182,14 +141,6 @@ export default function Finance() {
           </div>
       )}
 
-      {selectedPayslip && (
-        <ReviewPayslipSheet
-          isOpen={isPayslipSheetOpen}
-          onClose={() => setIsPayslipSheetOpen(false)}
-          record={selectedPayslip}
-        />
-      )}
-
       {selectedExpense && (
         <ReceiptViewer
           isOpen={isReceiptViewerOpen}
@@ -205,21 +156,8 @@ export default function Finance() {
           }}
         />
       )}
-      {selectedAdvance && (
-        <CashAdvanceReviewSheet
-          isOpen={isAdvanceReviewOpen}
-          onClose={() => setIsAdvanceReviewOpen(false)}
-          advance={selectedAdvance}
-          onApprove={(id) => {
-            updateAdvanceStatus(id, 'approved');
-            setIsAdvanceReviewOpen(false);
-          }}
-          onReject={(id) => {
-            updateAdvanceStatus(id, 'rejected');
-            setIsAdvanceReviewOpen(false);
-          }}
-        />
-      )}
+
+      {/* V2: ReviewPayslipSheet and CashAdvanceReviewSheet quarantined */}
 
       {selectedCycle && (
         <SettlementStatementSheet

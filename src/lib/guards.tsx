@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useProfileStore } from '@/stores/useProfileStore';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
@@ -11,19 +12,20 @@ export type UserRole = 'admin' | 'grower' | 'technician' | 'personnel' | 'owner'
  */
 export function useRoleGuard(allowedRoles: UserRole[], redirectTo = '/unauthorized') {
     const { user, isAuthenticated, isLoading } = useAuthStore();
+    const isSingleUser = useProfileStore((s) => s.isSingleUser);
     const navigate = useNavigate();
 
     useEffect(() => {
         if (!isLoading) {
             if (!isAuthenticated) {
                 navigate('/login');
-            } else if (user && !allowedRoles.includes(user.role as UserRole)) {
+            } else if (user && !isSingleUser && !allowedRoles.includes(user.role as UserRole)) {
                 navigate(redirectTo);
             }
         }
-    }, [user, isAuthenticated, isLoading, allowedRoles, navigate, redirectTo]);
+    }, [user, isAuthenticated, isLoading, isSingleUser, allowedRoles, navigate, redirectTo]);
 
-    return { isLoading, isAuthorized: isAuthenticated && user && allowedRoles.includes(user.role as UserRole) };
+    return { isLoading, isAuthorized: isAuthenticated && user && (isSingleUser || allowedRoles.includes(user.role as UserRole)) };
 }
 
 /**
@@ -32,7 +34,9 @@ export function useRoleGuard(allowedRoles: UserRole[], redirectTo = '/unauthoriz
  */
 export function hasRole(allowedRoles: UserRole[]): boolean {
     const { user } = useAuthStore.getState();
+    const { isSingleUser } = useProfileStore.getState();
     if (!user) return false;
+    if (isSingleUser) return true;
     return allowedRoles.includes(user.role as UserRole);
 }
 

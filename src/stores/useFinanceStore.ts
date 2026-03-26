@@ -52,7 +52,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           category:expense_categories(name)
         `)
         .eq('org_id', orgId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 199);
 
       if (expenseError) throw expenseError;
 
@@ -64,7 +65,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           user:profiles!payroll_payouts_user_id_fkey(first_name, last_name, role)
         `)
         .eq('org_id', orgId)
-        .order('pay_period_end', { ascending: false });
+        .order('pay_period_end', { ascending: false })
+        .range(0, 199);
 
       if (payrollError) throw payrollError;
 
@@ -76,7 +78,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           employee:profiles!cash_advance_requests_employee_id_fkey(first_name, last_name, role)
         `)
         .eq('org_id', orgId)
-        .order('request_date', { ascending: false });
+        .order('request_date', { ascending: false })
+        .range(0, 199);
 
       if (advanceError) throw advanceError;
 
@@ -84,7 +87,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       const { data: sales, error: salesError } = await supabase
         .from('harvest_sales')
         .select('net_revenue')
-        .eq('org_id', orgId);
+        .eq('org_id', orgId)
+        .range(0, 499);
 
       if (salesError) throw salesError;
 
@@ -96,7 +100,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           grower:profiles!settlement_statements_grower_id_fkey(first_name, last_name)
         `)
         .eq('org_id', orgId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 199);
 
       if (settlementsError) throw settlementsError;
 

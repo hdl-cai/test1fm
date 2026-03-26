@@ -10,7 +10,6 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-import { LeafletMap } from '@/components/Farms/LeafletMap';
 import { FarmCard } from '@/components/Farms/FarmCard';
 import { useNavigate } from 'react-router-dom';
 import type { Farm } from '@/types';
@@ -19,7 +18,7 @@ import { DataTablePagination } from '@/components/shared';
 type ViewMode = 'table' | 'grid';
 
 // Table View Component
-function FarmTableView({ farms, onFarmClick, onHoverChange }: { farms: Farm[], onFarmClick: (id: string) => void, onHoverChange: (id: string | null) => void }) {
+function FarmTableView({ farms, onFarmClick }: { farms: Farm[], onFarmClick: (id: string) => void }) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10;
   const totalPages = Math.ceil(farms.length / itemsPerPage);
@@ -51,8 +50,7 @@ function FarmTableView({ farms, onFarmClick, onHoverChange }: { farms: Farm[], o
                 <tr
                   key={farm.id}
                   onClick={() => onFarmClick(farm.id)}
-                  onMouseEnter={() => onHoverChange(farm.id)}
-                  onMouseLeave={() => onHoverChange(null)}
+
                   className="hover:bg-row-hover transition-colors transition-[width] group cursor-pointer bg-background"
                 >
                   <td className="px-6 py-4">
@@ -127,14 +125,12 @@ function FarmTableView({ farms, onFarmClick, onHoverChange }: { farms: Farm[], o
 }
 
 // Grid View Component
-function FarmGridView({ farms, onFarmClick, onHoverChange }: { farms: Farm[], onFarmClick: (id: string) => void, onHoverChange: (id: string | null) => void }) {
+function FarmGridView({ farms, onFarmClick }: { farms: Farm[], onFarmClick: (id: string) => void }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
       {farms.map((farm) => (
         <div
           key={farm.id}
-          onMouseEnter={() => onHoverChange(farm.id)}
-          onMouseLeave={() => onHoverChange(null)}
         >
           <FarmCard farm={farm} onClick={onFarmClick} />
         </div>
@@ -148,7 +144,7 @@ export default function Farms() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = React.useState<ViewMode>('table');
   const [isAddFarmOpen, setIsAddFarmOpen] = React.useState(false);
-  const [hoveredFarmId, setHoveredFarmId] = React.useState<string | null>(null);
+
   
   const { farms, isLoading, fetchFarms } = useFarmsStore();
   const { user } = useAuthStore();
@@ -185,13 +181,6 @@ export default function Farms() {
         </Button>
       </div>
 
-      {/* Map visualization */}
-      <LeafletMap
-        farms={farms}
-        className="h-[400px] shadow-2xl"
-        onMarkerClick={handleFarmClick}
-        hoveredFarmId={hoveredFarmId}
-      />
 
       {/* Farms List Section */}
       <div className="space-y-4">
@@ -258,11 +247,11 @@ export default function Farms() {
             />
           ) : viewMode === 'table' ? (
             <div className="relative z-10">
-              <FarmTableView farms={farms} onFarmClick={handleFarmClick} onHoverChange={setHoveredFarmId} />
+              <FarmTableView farms={farms} onFarmClick={handleFarmClick} />
             </div>
           ) : (
             <div className="relative z-10">
-              <FarmGridView farms={farms} onFarmClick={handleFarmClick} onHoverChange={setHoveredFarmId} />
+              <FarmGridView farms={farms} onFarmClick={handleFarmClick} />
             </div>
           )}
         </div>

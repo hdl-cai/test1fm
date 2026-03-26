@@ -5,13 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icon } from '@/hooks/useIcon';
 import { useFarmsStore } from '@/stores/useFarmsStore';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { cn } from '@/lib/utils';
-import type { Farm } from '@/types';
-
-// Import CSS for leaflet (though it's in index.css, safety first for markers)
-import 'leaflet/dist/leaflet.css';
 
 interface AddNewFarmSheetProps {
   isOpen: boolean;
@@ -24,46 +19,19 @@ const REGIONS = [
   { value: 'Visayas', label: 'Visayas' },
 ];
 
-// Custom icon for the marker in the mini-map
-const miniMapIcon = L.divIcon({
-  className: 'custom-div-icon',
-  html: `
-    <div class="relative flex items-center justify-center w-8 h-8">
-      <div class="absolute w-full h-full rounded-full bg-[#10B981] opacity-20 animate-pulse"></div>
-      <div class="relative w-3 h-3 rounded-full border-2 border-white bg-[#10B981] shadow-lg"></div>
-    </div>
-  `,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-function LocationMarker({ position, setPosition }: { position: [number, number], setPosition: (pos: [number, number]) => void }) {
-  useMapEvents({
-    click(e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-
-  return (
-    <Marker position={position} icon={miniMapIcon} />
-  );
-}
-
 export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
-  const addFarm = useFarmsStore((state) => state.addFarm);
+  const createFarm = useFarmsStore((state) => state.createFarm);
+  const orgId = useAuthStore((state) => state.user?.orgId);
 
   const [formData, setFormData] = React.useState({
     name: '',
     region: '',
     capacity: '',
-    lat: 8.2,
-    lng: 124.6,
+    lat: '',
+    lng: '',
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  const setCoordinates = (pos: [number, number]) => {
-    setFormData(prev => ({ ...prev, lat: Number(pos[0].toFixed(4)), lng: Number(pos[1].toFixed(4)) }));
-  };
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,39 +41,32 @@ export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      await createFarm({
+        name: formData.name,
+        region: formData.region,
+        capacity: parseInt(formData.capacity, 10),
+        lat: formData.lat ? parseFloat(formData.lat) : undefined,
+        lng: formData.lng ? parseFloat(formData.lng) : undefined,
+        orgId: orgId!,
+      });
 
-    const newFarmData: Omit<Farm, 'id' | 'lastUpdated'> = {
-      name: formData.name,
-      region: formData.region,
-      status: 'empty',
-      capacity: parseInt(formData.capacity, 10),
-      currentBirdCount: 0,
-      activeCycles: 0,
-      avgFCR: 0,
-      avgLiveWeight: 0,
-      bpi: 0,
-      coordinates: {
-        lat: formData.lat,
-        lng: formData.lng,
-      },
-    };
-
-    addFarm(newFarmData);
-
-    // Reset form
-    setFormData({
-      name: '',
-      region: '',
-      capacity: '',
-      lat: 8.2,
-      lng: 124.6,
-    });
-
-    setIsSubmitting(false);
-    onClose();
+      // Reset form
+      setFormData({
+        name: '',
+        region: '',
+        capacity: '',
+        lat: '',
+        lng: '',
+      });
+      onClose();
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to create farm. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -113,8 +74,8 @@ export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
       name: '',
       region: '',
       capacity: '',
-      lat: 8.2,
-      lng: 124.6,
+      lat: '',
+      lng: '',
     });
     onClose();
   };
@@ -129,6 +90,11 @@ export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
       className={cn("bg-card/95 backdrop-blur-xl border-l border-border/40")}
     >
       <form onSubmit={handleSubmit} className="space-y-6 pb-8">
+        {submitError && (
+          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
+            {submitError}
+          </div>
+        )}
         {/* Farm Name */}
         <div className="space-y-2">
           <Label htmlFor="farm-name" className="text-micro font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
@@ -195,37 +161,39 @@ export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
           </div>
         </div>
 
-        {/* Location Pin */}
+        {/* Location Coordinates (optional) */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-micro font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Location Pin
-            </Label>
-            <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded border border-white/5 font-mono text-micro text-muted-foreground">
-              <span className="text-primary/70">LAT: {formData.lat}</span>
-              <span className="w-px h-2 bg-white/10"></span>
-              <span className="text-primary/70">LNG: {formData.lng}</span>
-            </div>
-          </div>
-
-          <div className="relative h-56 rounded-xl overflow-hidden group border border-border/50 shadow-inner">
-            <MapContainer
-              center={[formData.lat, formData.lng]}
-              zoom={10}
-              className="w-full h-full z-0"
-              zoomControl={false}
-            >
-              <TileLayer
-                attribution='&copy; CARTO'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          <Label className="text-micro font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+            Location Coordinates (Optional)
+          </Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="latitude" className="text-xs text-muted-foreground">
+                Latitude
+              </Label>
+              <Input
+                id="latitude"
+                type="number"
+                step="any"
+                placeholder="e.g. 8.2000"
+                value={formData.lat}
+                onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
+                className="w-full bg-muted/20 border-border border focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground/30 transition-colors h-11 font-mono"
               />
-              <LocationMarker position={[formData.lat, formData.lng]} setPosition={setCoordinates} />
-            </MapContainer>
-
-            {/* Overlay Help */}
-            <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 bg-card/90 backdrop-blur-md border border-border/40 rounded-lg p-2 z-[400] text-micro text-muted-foreground">
-              <Icon name="InformationCircleIcon" size={14} className="text-primary" />
-              Click anywhere on the map to set the farm location coordinates.
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="longitude" className="text-xs text-muted-foreground">
+                Longitude
+              </Label>
+              <Input
+                id="longitude"
+                type="number"
+                step="any"
+                placeholder="e.g. 124.6000"
+                value={formData.lng}
+                onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
+                className="w-full bg-muted/20 border-border border focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground/30 transition-colors h-11 font-mono"
+              />
             </div>
           </div>
         </div>

@@ -1,0 +1,2 @@
+# Normalize line endings: repo stores LF, checkout uses system default
+* text=auto

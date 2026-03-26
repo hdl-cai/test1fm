@@ -13,9 +13,9 @@ import { TableHeader } from '@/components/ui/table-header';
 import { StatusBadge, MetricCard, DataTablePagination } from '@/components/shared';
 import { usePersonnelStore } from '@/stores/usePersonnelStore';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { getFarmById } from '@/data/farms';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
+import { InviteUserSheet } from '@/components/sheets/InviteUserSheet';
 import type { Person } from '@/types';
 
 type RoleTab = 'all' | Person['role'];
@@ -60,9 +60,7 @@ function PersonnelTable({ personnel }: { personnel: Person[] }) {
         </thead>
         <tbody className="divide-y divide-border/50">
           {personnel.map((person) => {
-            const assignedFarmNames = person.assignedFarms
-              .map(farmId => getFarmById(farmId)?.name)
-              .filter(Boolean);
+            const assignedFarmNames = person.assignedFarms || [];
 
             return (
               <tr key={person.id} className="hover:bg-row-hover transition-colors transition-[width] group bg-background">
@@ -142,6 +140,7 @@ export default function Personnel() {
   const [activeTab, setActiveTab] = React.useState<RoleTab>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const itemsPerPage = 10;
 
   React.useEffect(() => {
@@ -211,9 +210,9 @@ export default function Personnel() {
             <Icon name="Download01Icon" className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             Export Staff List
           </Button>
-          <Button className="active:scale-95">
+          <Button className="active:scale-95" onClick={() => setIsInviteOpen(true)}>
             <Icon name="PlusSignIcon" className="mr-2 h-4 w-4" />
-            Add Member
+            Invite User
           </Button>
         </div>
       </div>
@@ -311,6 +310,12 @@ export default function Personnel() {
           itemName="Active Operatives"
         />
       </div>
+
+      <InviteUserSheet
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        onInvited={() => user?.orgId && fetchPersonnelData(user.orgId)}
+      />
     </div>
   );
 }

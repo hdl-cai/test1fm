@@ -265,7 +265,7 @@ export default function ProductionCycles() {
 
   const { cycles, isLoading, fetchCycles, activeCyclesCount, completedCyclesCount, totalActiveBirds, averageFCR } = useCyclesStore();
   const farms = useFarmsStore((state) => state.farms);
-  const growers = usePersonnelStore((state) => state.growers);
+  const growers = usePersonnelStore((state) => state.personnel) || [];
   const { user } = useAuthStore();
 
   React.useEffect(() => {

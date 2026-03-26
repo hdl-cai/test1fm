@@ -40,14 +40,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'farms', label: 'Farms', icon: 'FarmIcon', path: '/farms' },
       { id: 'inventory', label: 'Inventory', icon: 'InventoryIcon', path: '/inventory' },
-      { id: 'sensors', label: 'Sensors', icon: 'SensorIcon', path: '/sensors' },
     ],
   },
   {
     title: 'Flock Management',
     items: [
       { id: 'production-cycles', label: 'Production Cycles', icon: 'CycleIcon', path: '/production-cycles' },
-      { id: 'health', label: 'Health', icon: 'MedicalFileIcon', path: '/health' },
     ],
   },
   {
@@ -60,6 +58,24 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// Avatar component: shows initials with a colored background
+function UserAvatar() {
+  const { user } = useAuthStore();
+  const name = user?.name || 'User';
+  const initials = name
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+
+  return (
+    <div className="h-9 w-9 rounded-full flex items-center justify-center ring-2 ring-sidebar-border bg-primary text-primary-foreground text-xs font-bold">
+      {initials}
+    </div>
+  );
+}
+
 const FOOTER_ITEMS: NavItem[] = [
   { id: 'settings', label: 'Settings', icon: 'SettingsIcon', path: '/settings' },
 ];
@@ -68,7 +84,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentNavSection, sidebarOpen, unreadNotifications } = useUIStore();
-  const { signOut } = useAuthStore();
+  const { signOut, user } = useAuthStore();
 
   const handleNavClick = (item: NavItem) => {
     setCurrentNavSection(item.id);
@@ -175,14 +191,10 @@ export function Sidebar() {
         {/* User Profile */}
         <div className="mt-4 pt-4 border-t border-sidebar-border">
           <div className="flex items-center group px-1">
-            <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-              alt="User Admin"
-              className="h-9 w-9 rounded-full object-cover ring-2 ring-sidebar-border"
-            />
+            <UserAvatar />
             <div className="ml-3 flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">Alex Morgan</p>
-              <p className="text-micro text-muted-foreground uppercase font-semibold">Farm Admin</p>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name || 'User'}</p>
+              <p className="text-micro text-muted-foreground uppercase font-semibold">{user?.role || 'Member'}</p>
             </div>
             <button
               onClick={() => { signOut(); navigate('/login'); }}
