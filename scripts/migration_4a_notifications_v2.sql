@@ -49,11 +49,11 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "notifications_own_read" ON notifications;
 CREATE POLICY "notifications_own_read" ON notifications
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (recipient_id = auth.uid());
 
 DROP POLICY IF EXISTS "notifications_own_update" ON notifications;
 CREATE POLICY "notifications_own_update" ON notifications
-  FOR UPDATE USING (user_id = auth.uid());
+  FOR UPDATE USING (recipient_id = auth.uid());
 
 -- 4. DB trigger: on cash_advance_requests changes → create notification
 CREATE OR REPLACE FUNCTION fn_notify_cash_advance()
@@ -69,7 +69,7 @@ BEGIN
     FOR v_admin_id IN
       SELECT id FROM profiles WHERE org_id = v_org_id AND role IN ('admin','owner')
     LOOP
-      INSERT INTO notifications (org_id, user_id, type, event_type, urgency, title, message, link)
+      INSERT INTO notifications (org_id, recipient_id, type, event_type, urgency, title, message, link)
       VALUES (
         v_org_id, v_admin_id, 'cash_advance_request', 'cash_advance_submitted', 'info',
         'New Cash Advance Request',
@@ -80,7 +80,7 @@ BEGIN
 
   ELSIF TG_OP = 'UPDATE' AND OLD.status != NEW.status THEN
     -- Notify employee on approval/rejection
-    INSERT INTO notifications (org_id, user_id, type, event_type, urgency, title, message, link)
+    INSERT INTO notifications (org_id, recipient_id, type, event_type, urgency, title, message, link)
     VALUES (
       v_org_id, NEW.employee_id, 'cash_advance_update', 'cash_advance_reviewed',
       CASE WHEN NEW.status = 'approved' THEN 'info' ELSE 'warning' END,
@@ -112,7 +112,7 @@ BEGIN
 
   IF TG_OP = 'INSERT' THEN
     -- Notify org admins
-    INSERT INTO notifications (org_id, user_id, type, event_type, urgency, title, message, link, farm_id, cycle_id)
+    INSERT INTO notifications (org_id, recipient_id, type, event_type, urgency, title, message, link, farm_id, cycle_id)
     SELECT
       NEW.org_id, p.id, 'cycle_started', 'cycle_created', 'info',
       'New Cycle Started',
@@ -123,7 +123,7 @@ BEGIN
     WHERE p.org_id = NEW.org_id AND p.role IN ('admin','owner');
 
   ELSIF TG_OP = 'UPDATE' AND OLD.status != 'closed' AND NEW.status = 'closed' THEN
-    INSERT INTO notifications (org_id, user_id, type, event_type, urgency, title, message, link, farm_id, cycle_id)
+    INSERT INTO notifications (org_id, recipient_id, type, event_type, urgency, title, message, link, farm_id, cycle_id)
     SELECT
       NEW.org_id, p.id, 'cycle_closed', 'cycle_completed', 'info',
       'Cycle Closed',
