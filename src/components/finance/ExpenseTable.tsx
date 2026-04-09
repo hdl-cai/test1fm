@@ -59,7 +59,7 @@ export function ExpenseTable({ expenses, onReview, onStartAudit }: ExpenseTableP
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Expense Ledger</h3>
-                    <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+                    <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
                         {expenses.length} TOTAL
                     </span>
                 </div>

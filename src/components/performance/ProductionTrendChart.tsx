@@ -33,7 +33,7 @@ export function ProductionTrendChart({ data, className }: ProductionTrendChartPr
                     </div>
                 </div>
 
-                <div className="h-[300px] w-full">
+                <div className="h-75 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
@@ -58,7 +58,6 @@ export function ProductionTrendChart({ data, className }: ProductionTrendChartPr
                                 ticks={[1.4, 1.5, 1.6, 1.7, 1.8]}
                             />
                             <Tooltip
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 content={(props: any) => {
                                     const { active, payload } = props;
                                     if (active && payload && payload.length) {
@@ -95,7 +94,6 @@ export function ProductionTrendChart({ data, className }: ProductionTrendChartPr
                                 strokeWidth={2}
                                 fillOpacity={1}
                                 fill="url(#colorFcr)"
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 dot={(props: any) => {
                                     const { cx, cy, value } = props;
                                     return (

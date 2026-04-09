@@ -12,6 +12,8 @@ import {
     HistoryIcon
 } from '@/hooks/useIcon';
 import type { CashAdvance } from '@/types';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface CashAdvanceReviewSheetProps {
     isOpen: boolean;
@@ -28,7 +30,27 @@ export function CashAdvanceReviewSheet({
     onApprove,
     onReject
 }: CashAdvanceReviewSheetProps) {
-    if (!advance) return null;
+    const [latestGrossPay, setLatestGrossPay] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !advance?.personId) {
+            setLatestGrossPay(null);
+            return;
+        }
+        supabase
+            .from('payroll_records')
+            .select('gross_pay')
+            .eq('user_id', advance.personId)
+            .order('pay_period_end', { ascending: false })
+            .limit(1)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    setLatestGrossPay(Number(data[0].gross_pay));
+                } else {
+                    setLatestGrossPay(null);
+                }
+            });
+    }, [isOpen, advance?.personId]);
 
     if (!advance) return null;
 
@@ -81,6 +103,19 @@ export function CashAdvanceReviewSheet({
                         <StatusBadge status={advance.status} />
                     </div>
                 </div>
+
+                {/* 50% Salary Warning */}
+                {latestGrossPay !== null && advance.amount > latestGrossPay * 0.5 && (
+                    <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-amber-800 dark:text-amber-300">
+                        <Money01Icon size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider">High Amount Warning</p>
+                            <p className="text-xs mt-0.5 leading-relaxed">
+                                This request ({formatCurrency(advance.amount)}) exceeds 50% of the employee's latest gross pay ({formatCurrency(latestGrossPay)}). Review carefully before approving.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Request Details */}
                 <div className="space-y-4">

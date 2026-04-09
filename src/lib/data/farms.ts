@@ -70,6 +70,7 @@ function mapFarmRowToFarm(row: Tables<'farms'>, farmCycles: FarmCycleRow[]): Far
     name: row.name,
     region: row.region || 'Unknown',
     status: toFarmStatus(row.status),
+    sensorsEnabled: row.sensors_enabled ?? false,
     capacity: row.capacity,
     currentBirdCount,
     activeCycles: farmCycles.length,
@@ -153,6 +154,7 @@ export async function createFarmRecord(input: {
       house_count: input.houseCount ?? 1,
       location_lat: input.lat ?? null,
       location_lng: input.lng ?? null,
+      sensors_enabled: false,
       status: 'active',
     };
 

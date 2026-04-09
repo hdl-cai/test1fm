@@ -12,6 +12,7 @@ import { Icon } from '@/hooks/useIcon';
 import { sendUserInvite } from '@/lib/data/auth';
 import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { supabase } from '@/lib/supabase';
 
 interface InviteUserSheetProps {
   isOpen: boolean;
@@ -26,7 +27,8 @@ export function InviteUserSheet({ isOpen, onClose, onInvited }: InviteUserSheetP
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
 
-  const orgId = useAuthStore((state) => state.user?.orgId);
+  const { user } = useAuthStore()
+  const orgId = user?.orgId;
 
   React.useEffect(() => {
     if (isOpen) {
@@ -49,6 +51,32 @@ export function InviteUserSheet({ isOpen, onClose, onInvited }: InviteUserSheetP
         role,
         orgId,
       });
+
+      // Notify org admins that a new user has been invited
+      if (orgId) {
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('org_id', orgId)
+          .in('role', ['admin', 'owner']);
+
+        for (const admin of admins ?? []) {
+          // Don't notify the person who sent the invite
+          if (admin.id === user?.id) continue;
+          await supabase.from('notifications').insert({
+            recipient_id: admin.id,
+            org_id: orgId,
+            type: 'new_user_invite',
+            event_type: 'new_user_invite',
+            urgency: 'info',
+            title: 'New User Invited',
+            message: `An invitation was sent to ${email.trim()} for the role of ${role}.`,
+            link: '/settings?tab=personnel',
+            expires_at: expiresAt,
+          });
+        }
+      }
 
       setSuccess(true);
       onInvited?.();

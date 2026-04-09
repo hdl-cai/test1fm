@@ -12,6 +12,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUIStore } from '@/stores/useUIStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import type { NavSection } from '@/types';
@@ -40,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'farms', label: 'Farms', icon: 'FarmIcon', path: '/farms' },
       { id: 'inventory', label: 'Inventory', icon: 'InventoryIcon', path: '/inventory' },
+      { id: 'sensors', label: 'Sensors', icon: 'SensorIcon', path: '/sensors' },
     ],
   },
   {
@@ -53,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'finance', label: 'Finance', icon: 'MoneyIcon', path: '/finance' },
       { id: 'performance', label: 'Performance', icon: 'AnalyticsIcon', path: '/performance' },
+      { id: 'analytics', label: 'Analytics', icon: 'Analytics01Icon', path: '/analytics' },
       { id: 'personnel', label: 'Personnel', icon: 'UserGroupIcon', path: '/personnel' },
     ],
   },
@@ -77,6 +80,7 @@ function UserAvatar() {
 }
 
 const FOOTER_ITEMS: NavItem[] = [
+  { id: 'notifications', label: 'Notifications', icon: 'Notification01Icon', path: '/notifications' },
   { id: 'settings', label: 'Settings', icon: 'SettingsIcon', path: '/settings' },
 ];
 
@@ -85,6 +89,7 @@ export function Sidebar() {
   const location = useLocation();
   const { setCurrentNavSection, sidebarOpen, unreadNotifications } = useUIStore();
   const { signOut, user } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
 
   const handleNavClick = (item: NavItem) => {
     setCurrentNavSection(item.id);
@@ -135,7 +140,7 @@ export function Sidebar() {
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-[width] duration-200 relative',
                         'text-sm font-medium',
                         isActive
-                          ? 'text-sidebar-primary border-l-2 border-sidebar-primary dark:bg-warning/15 dark:text-warning dark:border-warning bg-success/15 text-success border-success'
+                          ? 'border-l-2 border-sidebar-primary bg-sidebar-primary/10 text-sidebar-primary dark:bg-warning/15 dark:text-warning dark:border-warning'
                           : 'text-sidebar-foreground hover:bg-sidebar-hover hover:text-sidebar-accent-foreground'
                       )}
                     >
@@ -168,7 +173,7 @@ export function Sidebar() {
                 'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors duration-200',
                 'text-sm font-medium',
                 isActive
-                  ? 'text-sidebar-primary border-l-2 border-sidebar-primary dark:bg-warning/15 dark:text-warning dark:border-warning bg-success/15 text-success border-success'
+                  ? 'border-l-2 border-sidebar-primary bg-sidebar-primary/10 text-sidebar-primary dark:bg-warning/15 dark:text-warning dark:border-warning'
                   : 'text-sidebar-foreground hover:bg-sidebar-hover hover:text-sidebar-accent-foreground'
               )}
             >
@@ -177,6 +182,11 @@ export function Sidebar() {
                 size={20}
               />
               <span>{item.label}</span>
+              {item.id === 'notifications' && unreadCount > 0 && (
+                <span className="ml-auto flex items-center justify-center min-w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
           );
         })}

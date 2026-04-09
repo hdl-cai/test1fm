@@ -405,6 +405,15 @@ const ICON_MAPPING = [
   { name: 'ChevronLeftIcon', lucide: 'ChevronLeft' },
   { name: 'ChevronRightIcon', lucide: 'ChevronRight' },
   { name: 'Analytics01Icon', lucide: 'BarChart' },
+  { name: 'AnalyticsUpIcon', lucide: 'TrendingUp' },
+  { name: 'Notification01Icon', lucide: 'Bell' },
+  { name: 'Money03Icon', lucide: 'Banknote' },
+  { name: 'Settings01Icon', lucide: 'Settings' },
+  { name: 'Calendar01Icon', lucide: 'Calendar' },
+  { name: 'Plus01Icon', lucide: 'Plus' },
+  { name: 'Refresh01Icon', lucide: 'RefreshCw' },
+  { name: 'FileCode01Icon', lucide: 'FileText' },
+  { name: 'InformationCircleIcon', lucide: 'Info' },
   { name: 'DocumentCodeIcon', lucide: 'Code' },
   { name: 'FirstAidIcon', lucide: 'Stethoscope' },
   { name: 'PackageIcon', lucide: 'Package' },
@@ -735,6 +744,9 @@ export function CreditCardIcon(props: Omit<IconProps, 'name'>) { return <Icon na
 export function ClipboardIcon(props: Omit<IconProps, 'name'>) { return <Icon name="ClipboardIcon" {...props} />; }
 export function HistoryIcon(props: Omit<IconProps, 'name'>) { return <Icon name="HistoryIcon" {...props} />; }
 export function ShieldAlertIcon(props: Omit<IconProps, 'name'>) { return <Icon name="ShieldAlertIcon" {...props} />; }
+export function UsersIcon(props: Omit<IconProps, 'name'>) { return <Icon name="UsersIcon" {...props} />; }
+export function PlayIcon(props: Omit<IconProps, 'name'>) { return <Icon name="PlayIcon" {...props} />; }
+export function ChartIcon(props: Omit<IconProps, 'name'>) { return <Icon name="ChartIcon" {...props} />; }
 
 // Re-export Lucide icons for direct use if needed
 export {

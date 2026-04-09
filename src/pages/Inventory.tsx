@@ -2,8 +2,11 @@
  * Inventory Page
  *
  * Main page for inventory management. Displays:
+ * - Stock Levels: real-time stock status across all items
  * - Deliveries: Delivery log from Supabase
  * - Catalogue: Supply item CRUD
+ * - Supplier Directory: Supplier management
+ * - Purchase Orders: PO workflow (Draft → Submitted → Delivered)
  */
 
 import * as React from 'react';
@@ -17,10 +20,13 @@ import { cn, formatPHP } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCyclesStore } from '@/stores/useCyclesStore';
-// V2: InventoryStockSheet, NewOrderSheet, FeedPhaseTracker quarantined
+import { useInventoryStore } from '@/stores/useInventoryStore';
 import { DataTablePagination, FarmFilter } from '@/components/shared';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { SupplyItemSheet } from '@/components/sheets/SupplyItemSheet';
+import { StockLevelsTable } from '@/components/inventory/StockLevelsTable';
+import { SupplierTable } from '@/components/inventory/SupplierTable';
+import { PurchaseOrderTable } from '@/components/inventory/PurchaseOrderTable';
 import {
   archiveInventoryItem,
   type DeliveryLog,
@@ -30,30 +36,37 @@ import {
 } from '@/lib/data/inventory';
 import { getErrorMessage } from '@/lib/data/errors';
 
-type TabType = 'orders' | 'catalogue';
+type PrimaryTab = 'stock' | 'suppliers' | 'purchase-orders';
+type StockSection = 'stock' | 'orders' | 'catalogue';
 
 const parseFloat = (value: string | number | null | undefined) => Number(value ?? 0);
 
-
-
-
-// V2: consumptionData chart removed
-
 export default function Inventory() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get('tab') as TabType) || 'orders';
+  const tabParam = searchParams.get('tab');
+  const activeTab: PrimaryTab = tabParam === 'suppliers' || tabParam === 'purchase-orders' ? tabParam : 'stock';
+  const stockSection: StockSection = tabParam === 'orders' || tabParam === 'catalogue' ? tabParam : 'stock';
 
   const [ordersPage, setOrdersPage] = React.useState(1);
   const [cataloguePage, setCataloguePage] = React.useState(1);
   const itemsPerPage = 10;
 
-  const setActiveTab = (value: TabType) => {
+  const setActiveTab = (value: PrimaryTab) => {
+    if (value === 'stock') {
+      setSearchParams({ tab: stockSection });
+      return;
+    }
+
     setSearchParams({ tab: value });
   };
 
-  // V2: useInventoryStore quarantined (stock tracking removed)
+  const setStockSection = (value: StockSection) => {
+    setSearchParams({ tab: value });
+  };
+
   const { fetchCycles } = useCyclesStore();
   const { user } = useAuthStore();
+  const { stockLevels, isLoadingStock, fetchStockLevels } = useInventoryStore();
 
   // Catalogue state
   const [catalogueItems, setCatalogueItems] = React.useState<InventoryCatalogueItem[]>([]);
@@ -61,7 +74,7 @@ export default function Inventory() {
   const [isSupplySheetOpen, setIsSupplySheetOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<InventoryCatalogueItem | null>(null);
 
-  // Deliveries state (replaces mockOrders)
+  // Deliveries state
   const [deliveries, setDeliveries] = React.useState<DeliveryLog[]>([]);
   const [isDeliveriesLoading, setIsDeliveriesLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -100,8 +113,9 @@ export default function Inventory() {
       fetchCycles(orgId);
       loadCatalogue();
       loadDeliveries();
+      fetchStockLevels(orgId);
     }
-  }, [fetchCycles, loadCatalogue, loadDeliveries, orgId]);
+  }, [fetchCycles, fetchStockLevels, loadCatalogue, loadDeliveries, orgId]);
 
   const handleArchiveItem = async (itemId: string) => {
     try {
@@ -112,9 +126,6 @@ export default function Inventory() {
     }
   };
 
-
-
-
   const totalOrdersPages = Math.ceil(deliveries.length / itemsPerPage);
   const paginatedOrders = deliveries.slice((ordersPage - 1) * itemsPerPage, ordersPage * itemsPerPage);
 
@@ -123,7 +134,7 @@ export default function Inventory() {
 
   if (isDeliveriesLoading && isCatalogueLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-100 space-y-4">
         <Loader2 className="animate-spin text-primary" size={40} />
         <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest animate-pulse">
           Loading Inventory...
@@ -134,7 +145,7 @@ export default function Inventory() {
 
   if (loadError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-100 space-y-4">
         <div className="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center text-danger">
           <AlertCircle size={24} />
         </div>
@@ -151,7 +162,7 @@ export default function Inventory() {
 
   return (
     <div className="p-4 md:p-8 space-y-8">
-      {/* Welcome Header */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <PageTitle>Inventory</PageTitle>
@@ -160,209 +171,263 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <FarmFilter className="min-w-[200px]" />
-          {/* V2: New Order and Add Item buttons quarantined */}
+          <FarmFilter className="min-w-50" />
         </div>
       </div>
 
-      {/* V2: Usage chart quarantined */}
-
-      <div className="">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full">
+      <div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PrimaryTab)} className="w-full">
           <div className="px-6 pt-4 border-b border-border">
             <LineTabsList className="w-fit border-none">
-              <LineTabsTrigger value="orders">
-                <Icon name="ActivityIcon" size={14} />
-                Deliveries
+              <LineTabsTrigger value="stock">
+                <Icon name="PackageIcon" size={14} />
+                Inventory Operations
               </LineTabsTrigger>
-              <LineTabsTrigger value="catalogue">
-                <Icon name="BoxIcon" size={14} />
-                Catalogue
+              <LineTabsTrigger value="suppliers">
+                <Icon name="BuildingIcon" size={14} />
+                Suppliers
               </LineTabsTrigger>
-              {/* V2: Stock and Feed Plan tabs quarantined */}
+              <LineTabsTrigger value="purchase-orders">
+                <Icon name="ClipboardIcon" size={14} />
+                Purchase Orders
+              </LineTabsTrigger>
             </LineTabsList>
           </div>
 
-
-          {/* V2: Stock tab quarantined */}
-
-          <TabsContent value="orders" className="p-6 animate-in fade-in duration-300 mt-0">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1 mb-6">
-              <div className="flex items-center gap-3">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Delivery Log</h3>
-                <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
-                  {deliveries.length} TOTAL
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <TableHeader className="px-6 py-4 text-left">Item</TableHeader>
-                      <TableHeader className="px-6 py-4 text-left">Type</TableHeader>
-                      <TableHeader className="px-6 py-4 text-right">Qty</TableHeader>
-                      <TableHeader className="px-6 py-4 text-right">Cost</TableHeader>
-                      <TableHeader className="px-6 py-4 text-left">Date</TableHeader>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {isDeliveriesLoading ? (
-                      <tr>
-                        <td colSpan={5} className="py-16 text-center">
-                          <Loader2 className="animate-spin text-primary mx-auto" size={24} />
-                        </td>
-                      </tr>
-                    ) : paginatedOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-20">
-                          <EmptyState icon="BoxIcon" title="No Deliveries" description="No deliveries have been logged yet." className="bg-transparent" />
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedOrders.map((d) => (
-                        <tr key={d.id} className="group hover:bg-row-hover transition-colors bg-background">
-                          <td className="px-6 py-4 font-bold text-foreground">{d.item_name}</td>
-                          <td className="px-6 py-4">
-                            <span className={cn(
-                              "badge",
-                              d.item_type === 'feed' ? 'badge-warning' :
-                                d.item_type === 'medicine' ? 'badge-info' : 'badge-muted'
-                            )}>
-                              {d.item_type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right tabular-nums font-bold">{parseFloat(d.quantity_delivered).toLocaleString()} {d.unit}</td>
-                          <td className="px-6 py-4 text-right tabular-nums font-bold">{formatPHP(parseFloat(d.total_cost || 0))}</td>
-                          <td className="px-6 py-4 text-muted-foreground text-sm">{new Date(d.delivery_date).toLocaleDateString()}</td>
-                        </tr>
-                      ))
+          <TabsContent value="stock" className="p-6 animate-in fade-in duration-300 mt-0">
+            <div className="space-y-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Inventory Operations</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Stock levels, deliveries, and catalogue management are grouped here to match the v2 top-level navigation plan.</p>
+                </div>
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg w-fit">
+                  <button
+                    onClick={() => setStockSection('stock')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                      stockSection === 'stock' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     )}
-                  </tbody>
-                </table>
+                  >
+                    <Icon name="PackageIcon" size={12} />
+                    Stock Levels
+                  </button>
+                  <button
+                    onClick={() => setStockSection('orders')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                      stockSection === 'orders' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Icon name="ActivityIcon" size={12} />
+                    Deliveries
+                  </button>
+                  <button
+                    onClick={() => setStockSection('catalogue')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                      stockSection === 'catalogue' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Icon name="BoxIcon" size={12} />
+                    Catalogue
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-6">
-              <DataTablePagination
-                currentPage={ordersPage}
-                totalPages={totalOrdersPages}
-                onPageChange={setOrdersPage}
-                pageSize={itemsPerPage}
-                totalItems={deliveries.length}
-                itemName="Deliveries"
-              />
+              {stockSection === 'stock' && (
+                <StockLevelsTable items={stockLevels} isLoading={isLoadingStock} />
+              )}
+
+              {stockSection === 'orders' && (
+                <>
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Delivery Log</h3>
+                      <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+                        {deliveries.length} TOTAL
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <TableHeader className="px-6 py-4 text-left">Item</TableHeader>
+                            <TableHeader className="px-6 py-4 text-left">Type</TableHeader>
+                            <TableHeader className="px-6 py-4 text-right">Qty</TableHeader>
+                            <TableHeader className="px-6 py-4 text-right">Cost</TableHeader>
+                            <TableHeader className="px-6 py-4 text-left">Date</TableHeader>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {isDeliveriesLoading ? (
+                            <tr>
+                              <td colSpan={5} className="py-16 text-center">
+                                <Loader2 className="animate-spin text-primary mx-auto" size={24} />
+                              </td>
+                            </tr>
+                          ) : paginatedOrders.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-20">
+                                <EmptyState icon="BoxIcon" title="No Deliveries" description="No deliveries have been logged yet." className="bg-transparent" />
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedOrders.map((d) => (
+                              <tr key={d.id} className="group hover:bg-row-hover transition-colors bg-background">
+                                <td className="px-6 py-4 font-bold text-foreground">{d.item_name}</td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    'badge',
+                                    d.item_type === 'feed' ? 'badge-warning' :
+                                      d.item_type === 'medicine' ? 'badge-info' : 'badge-muted'
+                                  )}>
+                                    {d.item_type}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right tabular-nums font-bold">{parseFloat(d.quantity_delivered).toLocaleString()} {d.unit}</td>
+                                <td className="px-6 py-4 text-right tabular-nums font-bold">{formatPHP(parseFloat(d.total_cost || 0))}</td>
+                                <td className="px-6 py-4 text-muted-foreground text-sm">{new Date(d.delivery_date).toLocaleDateString()}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <DataTablePagination
+                      currentPage={ordersPage}
+                      totalPages={totalOrdersPages}
+                      onPageChange={setOrdersPage}
+                      pageSize={itemsPerPage}
+                      totalItems={deliveries.length}
+                      itemName="Deliveries"
+                    />
+                  </div>
+                </>
+              )}
+
+              {stockSection === 'catalogue' && (
+                <>
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Supply Catalogue</h3>
+                      <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+                        {catalogueItems.length} ITEMS
+                      </span>
+                    </div>
+                    <Button
+                      onClick={() => { setEditingItem(null); setIsSupplySheetOpen(true); }}
+                      className="active:scale-95 h-10 px-4"
+                    >
+                      <Icon name="AddIcon" size={16} className="mr-2" />
+                      Add Supply Item
+                    </Button>
+                  </div>
+
+                  <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <TableHeader className="px-6 py-4 text-left">Name</TableHeader>
+                            <TableHeader className="px-6 py-4 text-left">Category</TableHeader>
+                            <TableHeader className="px-6 py-4 text-left">Unit</TableHeader>
+                            <TableHeader className="px-6 py-4 text-right">Threshold</TableHeader>
+                            <TableHeader className="px-6 py-4 text-center">Actions</TableHeader>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {isCatalogueLoading ? (
+                            <tr>
+                              <td colSpan={5} className="py-16 text-center">
+                                <Loader2 className="animate-spin text-primary mx-auto" size={24} />
+                              </td>
+                            </tr>
+                          ) : paginatedCatalogue.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-20">
+                                <EmptyState icon="BoxIcon" title="No Catalogue Items" description="Add supply items to build your catalogue." className="bg-transparent" />
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedCatalogue.map((item) => (
+                              <tr key={item.id} className="group hover:bg-row-hover transition-colors bg-background">
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-foreground">{item.name}</span>
+                                    <span className="text-micro text-muted-foreground/40 uppercase tracking-widest">{item.item_id_code}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="badge badge-info">{item.inventory_categories?.name || 'N/A'}</span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-foreground font-medium">{item.unit}</td>
+                                <td className="px-6 py-4 text-right tabular-nums font-bold text-muted-foreground">
+                                  {item.low_stock_threshold ? parseFloat(item.low_stock_threshold).toLocaleString() : '—'}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex justify-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="w-9 h-9 rounded-xl text-muted-foreground hover:text-foreground border border-border/40 hover:border-border/60"
+                                      title="Edit"
+                                      onClick={() => { setEditingItem(item); setIsSupplySheetOpen(true); }}
+                                    >
+                                      <Icon name="Edit02Icon" size={16} />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="w-9 h-9 rounded-xl text-muted-foreground hover:text-danger border border-border/40 hover:border-danger/40"
+                                      title="Archive"
+                                      onClick={() => handleArchiveItem(item.id)}
+                                    >
+                                      <Icon name="Delete02Icon" size={16} />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <DataTablePagination
+                      currentPage={cataloguePage}
+                      totalPages={totalCataloguePages}
+                      onPageChange={setCataloguePage}
+                      pageSize={itemsPerPage}
+                      totalItems={catalogueItems.length}
+                      itemName="Items"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </TabsContent>
 
-          {/* Catalogue Tab */}
-          <TabsContent value="catalogue" className="p-6 animate-in fade-in duration-300 mt-0">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1 mb-6">
-              <div className="flex items-center gap-3">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Supply Catalogue</h3>
-                <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
-                  {catalogueItems.length} ITEMS
-                </span>
-              </div>
-              <Button
-                onClick={() => { setEditingItem(null); setIsSupplySheetOpen(true); }}
-                className="active:scale-95 h-10 px-4"
-              >
-                <Icon name="AddIcon" size={16} className="mr-2" />
-                Add Supply Item
-              </Button>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <TableHeader className="px-6 py-4 text-left">Name</TableHeader>
-                      <TableHeader className="px-6 py-4 text-left">Category</TableHeader>
-                      <TableHeader className="px-6 py-4 text-left">Unit</TableHeader>
-                      <TableHeader className="px-6 py-4 text-right">Threshold</TableHeader>
-                      <TableHeader className="px-6 py-4 text-center">Actions</TableHeader>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {isCatalogueLoading ? (
-                      <tr>
-                        <td colSpan={5} className="py-16 text-center">
-                          <Loader2 className="animate-spin text-primary mx-auto" size={24} />
-                        </td>
-                      </tr>
-                    ) : paginatedCatalogue.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-20">
-                          <EmptyState icon="BoxIcon" title="No Catalogue Items" description="Add supply items to build your catalogue." className="bg-transparent" />
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedCatalogue.map((item) => (
-                        <tr key={item.id} className="group hover:bg-row-hover transition-colors bg-background">
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-foreground">{item.name}</span>
-                              <span className="text-micro text-muted-foreground/40 uppercase tracking-widest">{item.item_id_code}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="badge badge-info">{item.inventory_categories?.name || 'N/A'}</span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-foreground font-medium">{item.unit}</td>
-                          <td className="px-6 py-4 text-right tabular-nums font-bold text-muted-foreground">
-                            {item.low_stock_threshold ? parseFloat(item.low_stock_threshold).toLocaleString() : '—'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex justify-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="w-9 h-9 rounded-xl text-muted-foreground hover:text-foreground border border-border/40 hover:border-border/60"
-                                title="Edit"
-                                onClick={() => { setEditingItem(item); setIsSupplySheetOpen(true); }}
-                              >
-                                <Icon name="Edit02Icon" size={16} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="w-9 h-9 rounded-xl text-muted-foreground hover:text-danger border border-border/40 hover:border-danger/40"
-                                title="Archive"
-                                onClick={() => handleArchiveItem(item.id)}
-                              >
-                                <Icon name="Delete02Icon" size={16} />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <DataTablePagination
-                currentPage={cataloguePage}
-                totalPages={totalCataloguePages}
-                onPageChange={setCataloguePage}
-                pageSize={itemsPerPage}
-                totalItems={catalogueItems.length}
-                itemName="Items"
-              />
-            </div>
+          {/* Supplier Directory Tab */}
+          <TabsContent value="suppliers" className="p-6 animate-in fade-in duration-300 mt-0">
+            {orgId && <SupplierTable orgId={orgId} />}
           </TabsContent>
 
-          {/* V2: Strategy/Feed Plan tab quarantined */}
+          {/* Purchase Orders Tab */}
+          <TabsContent value="purchase-orders" className="p-6 animate-in fade-in duration-300 mt-0">
+            {orgId && <PurchaseOrderTable orgId={orgId} />}
+          </TabsContent>
         </Tabs>
       </div>
 
-      {/* V2: InventoryStockSheet and NewOrderSheet quarantined */}
       <SupplyItemSheet
         isOpen={isSupplySheetOpen}
         onClose={() => { setIsSupplySheetOpen(false); setEditingItem(null); }}

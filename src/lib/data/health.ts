@@ -5,8 +5,9 @@ import {
   type VaccinationScheduleRow,
 } from '@/lib/data-adapters';
 import type { HealthRecord } from '@/types';
-import { requireOrgId } from './context';
+import { requireOrgId, requireUserId } from './context';
 import { toDataLayerError } from './errors';
+import type { TablesInsert, TablesUpdate } from '@/types/supabase';
 
 export interface HealthData {
   records: HealthRecord[];
@@ -70,5 +71,104 @@ export async function fetchHealthData(orgId: string): Promise<HealthData> {
     };
   } catch (error) {
     throw toDataLayerError(error, 'Failed to fetch health data.', 'health.fetchHealthData');
+  }
+}
+
+export async function addHealthRecord(input: {
+  cycleId: string;
+  orgId?: string | null;
+  userId?: string | null;
+  recordDate: string;
+  recordType: string;
+  subject: string;
+  notes?: string;
+  medicationName?: string;
+  dosage?: string;
+  birdsAffected?: number;
+  outcome?: 'resolved' | 'ongoing' | 'escalated';
+  isGahpCompliant?: boolean;
+}) {
+  try {
+    const payload: TablesInsert<'health_records'> = {
+      cycle_id: input.cycleId,
+      org_id: requireOrgId(input.orgId),
+      submitted_by: requireUserId(input.userId),
+      record_date: input.recordDate,
+      record_type: input.recordType,
+      subject: input.subject,
+      notes: input.notes ?? null,
+      medication_name: input.medicationName ?? null,
+      dosage: input.dosage ?? null,
+      birds_affected: input.birdsAffected ?? null,
+      outcome: input.outcome ?? null,
+      is_gahp_compliant: input.isGahpCompliant ?? false,
+    };
+
+    const { data, error } = await supabase
+      .from('health_records')
+      .insert(payload)
+      .select(`*, veterinarian:profiles!health_records_veterinarian_id_fkey(first_name, last_name)`)
+      .single();
+
+    if (error || !data) throw error ?? new Error('Failed to create health record.');
+    return data;
+  } catch (error) {
+    throw toDataLayerError(error, 'Failed to add health record.', 'health.addHealthRecord');
+  }
+}
+
+export async function markVaccinationDone(input: {
+  scheduleId: string;
+  completedDate: string;
+  vaccineBrandBatch?: string;
+  notes?: string;
+  verifiedByTechId?: string;
+}) {
+  try {
+    const updates: TablesUpdate<'vaccination_schedules'> = {
+      status: 'completed',
+      completed_date: input.completedDate,
+      vaccine_brand_batch: input.vaccineBrandBatch ?? null,
+      notes: input.notes ?? null,
+      verified_by_tech_id: input.verifiedByTechId ?? null,
+    };
+
+    const { data, error } = await supabase
+      .from('vaccination_schedules')
+      .update(updates)
+      .eq('id', input.scheduleId)
+      .select('*')
+      .single();
+
+    if (error || !data) throw error ?? new Error('Failed to mark vaccination as done.');
+    return data as VaccinationScheduleRow;
+  } catch (error) {
+    throw toDataLayerError(error, 'Failed to mark vaccination as done.', 'health.markVaccinationDone');
+  }
+}
+
+export async function rescheduleVaccination(input: {
+  scheduleId: string;
+  newDate: string;
+  rescheduleNote: string;
+}) {
+  try {
+    const updates: TablesUpdate<'vaccination_schedules'> = {
+      scheduled_date: input.newDate,
+      reschedule_note: input.rescheduleNote,
+      status: 'scheduled',
+    };
+
+    const { data, error } = await supabase
+      .from('vaccination_schedules')
+      .update(updates)
+      .eq('id', input.scheduleId)
+      .select('*')
+      .single();
+
+    if (error || !data) throw error ?? new Error('Failed to reschedule vaccination.');
+    return data as VaccinationScheduleRow;
+  } catch (error) {
+    throw toDataLayerError(error, 'Failed to reschedule vaccination.', 'health.rescheduleVaccination');
   }
 }

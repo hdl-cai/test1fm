@@ -58,7 +58,7 @@ export function FarmFilter({
                     <SelectValue placeholder="Select Farm" />
                 </div>
             </SelectTrigger>
-            <SelectContent align="end" className="min-w-[200px]">
+            <SelectContent align="end" className="min-w-50">
                 <SelectGroup>
                     <SelectLabel className="text-micro font-bold uppercase tracking-widest text-muted-foreground py-2">
                         Farms

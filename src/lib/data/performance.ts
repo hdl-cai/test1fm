@@ -22,10 +22,15 @@ export interface LeaderboardEntry {
   epef: number;
   points: number;
   rank: number;
+  rankAtClose: number | null;
+  careerTier: 'training' | 'junior' | 'senior' | 'elite' | null;
   trend: 'up' | 'down' | 'neutral';
   efficiency: number;
   status: 'Elite' | 'Senior' | 'Junior' | 'Training';
   lastBatchDate: string;
+  fcr: number;
+  mortalityPct: number;
+  cyclesCompleted: number;
 }
 
 export interface ChartDataPoint {
@@ -74,6 +79,8 @@ export async function fetchPerformanceData(orgId: string): Promise<PerformanceDa
           epef_score,
           total_points,
           grower_id,
+          rank_at_close,
+          career_tier,
           profiles!grower_performance_grower_id_fkey (
             first_name,
             last_name
@@ -100,20 +107,43 @@ export async function fetchPerformanceData(orgId: string): Promise<PerformanceDa
     if (expensesError) throw expensesError;
 
     const uniqueGrowers = new Map<string, LeaderboardEntry>();
+    const growerCycleCount = new Map<string, number>();
+
+    ((historyData || []) as GrowerPerformanceRow[]).forEach((entry) => {
+      growerCycleCount.set(entry.grower_id, (growerCycleCount.get(entry.grower_id) ?? 0) + 1);
+    });
+
     ((historyData || []) as GrowerPerformanceRow[]).forEach((entry) => {
       const growerName = `${entry.profiles?.first_name || ''} ${entry.profiles?.last_name || ''}`.trim();
-      uniqueGrowers.set(entry.grower_id, {
-        id: entry.grower_id,
-        growerName,
-        epef: Number(entry.epef_score) || 0,
-        points: Number(entry.total_points) || 0,
-        rank: 0,
-        trend: 'neutral',
-        efficiency: Math.min(100, ((Number(entry.epef_score) || 0) / 400) * 100),
-        status:
-          entry.epef_score && entry.epef_score > 350 ? 'Elite' : entry.epef_score && entry.epef_score > 300 ? 'Senior' : 'Junior',
-        lastBatchDate: entry.created_at,
-      });
+      const existing = uniqueGrowers.get(entry.grower_id);
+      // Keep the record with highest epef_score per grower
+      if (!existing || (Number(entry.epef_score) || 0) > existing.epef) {
+        const careerTierRaw = (entry as unknown as Record<string, unknown>).career_tier as string | null;
+        const rankAtCloseRaw = (entry as unknown as Record<string, unknown>).rank_at_close as number | null;
+        const careerTier = (['training', 'junior', 'senior', 'elite'].includes(careerTierRaw ?? '')
+          ? careerTierRaw as 'training' | 'junior' | 'senior' | 'elite'
+          : null);
+        uniqueGrowers.set(entry.grower_id, {
+          id: entry.grower_id,
+          growerName,
+          epef: Number(entry.epef_score) || 0,
+          points: Number(entry.total_points) || 0,
+          rank: 0,
+          rankAtClose: rankAtCloseRaw ?? null,
+          careerTier,
+          trend: 'neutral',
+          efficiency: Math.min(100, ((Number(entry.epef_score) || 0) / 400) * 100),
+          status:
+            entry.epef_score && entry.epef_score > 350 ? 'Elite'
+            : entry.epef_score && entry.epef_score > 300 ? 'Senior'
+            : entry.epef_score && entry.epef_score > 280 ? 'Junior'
+            : 'Training',
+          lastBatchDate: entry.created_at,
+          fcr: Number(entry.final_fcr) || 0,
+          mortalityPct: (Number(entry.final_mortality_rate) || 0) * 100,
+          cyclesCompleted: growerCycleCount.get(entry.grower_id) ?? 1,
+        });
+      }
     });
 
     const leaderboard = Array.from(uniqueGrowers.values())

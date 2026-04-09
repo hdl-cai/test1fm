@@ -9,6 +9,11 @@ import {
   type VaccinationScheduleRow,
 } from '@/lib/data-adapters';
 import { fetchHealthData as fetchHealthDataFromDataLayer } from '@/lib/data/health';
+import {
+  addHealthRecord as addHealthRecordToDb,
+  markVaccinationDone as markVaccinationDoneInDb,
+  rescheduleVaccination as rescheduleVaccinationInDb,
+} from '@/lib/data/health';
 import { getErrorMessage } from '@/lib/data/errors';
 import type { HealthRecord } from '@/types';
 
@@ -36,6 +41,31 @@ export interface HealthState {
   fetchHealthData: (orgId: string) => Promise<void>;
   addRecord: (record: Omit<HealthRecord, 'id'>) => Promise<void>;
   updateRecord: (id: string, updates: Partial<HealthRecord>) => Promise<void>;
+  addHealthRecord: (input: {
+    cycleId: string;
+    orgId: string;
+    userId: string;
+    recordDate: string;
+    recordType: string;
+    subject: string;
+    notes?: string;
+    medicationName?: string;
+    dosage?: string;
+    birdsAffected?: number;
+    outcome?: 'resolved' | 'ongoing' | 'escalated';
+  }) => Promise<void>;
+  markVaccinationDone: (input: {
+    scheduleId: string;
+    completedDate: string;
+    vaccineBrandBatch?: string;
+    notes?: string;
+    verifiedByTechId?: string;
+  }) => Promise<VaccinationScheduleRow>;
+  rescheduleVaccination: (input: {
+    scheduleId: string;
+    newDate: string;
+    rescheduleNote: string;
+  }) => Promise<VaccinationScheduleRow>;
   
   // Selectors
   getRecordsByCycleId: (cycleId: string) => HealthRecord[];
@@ -71,13 +101,23 @@ export const useHealthStore = create<HealthState>((set, get) => ({
 
   addRecord: async (_recordData) => {
     void _recordData;
-    // Implementation for adding records via Supabase
   },
 
   updateRecord: async (_id, _updates) => {
     void _id;
     void _updates;
-    // Implementation for updating records via Supabase
+  },
+
+  addHealthRecord: async (input) => {
+    await addHealthRecordToDb(input);
+  },
+
+  markVaccinationDone: async (input) => {
+    return await markVaccinationDoneInDb(input);
+  },
+
+  rescheduleVaccination: async (input) => {
+    return await rescheduleVaccinationInDb(input);
   },
 
   getRecordsByCycleId: (cycleId) => {
@@ -87,7 +127,6 @@ export const useHealthStore = create<HealthState>((set, get) => ({
   getVaccinationSteps: (cycleId, startDate) => {
     const cycleVax = get().schedules.filter(s => s.cycle_id === cycleId);
     
-    // Core BAI Steps if no database records exist
     const defaultSteps: VaccinationStep[] = [
       { id: '1', name: 'Hatchery Plan', dol: 1, medication: 'HVT/ND', status: 'scheduled' },
       { id: '2', name: 'Maternal Guard', dol: 7, medication: 'ND/IB (Live)', status: 'scheduled' },

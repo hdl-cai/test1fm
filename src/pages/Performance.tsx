@@ -6,19 +6,29 @@ import { Button } from '@/components/ui/button';
 import { PageTitle } from '@/components/ui/page-title';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  // V2: BonusCalculator, GrowerTable, FinancialTrendChart, TopGrowers, GrowerStats quarantined
+  BonusCalculator,
   CostDistributionChart,
+  FinancialTrendChart,
+  GrowerStats,
+  GrowerTable,
   KPIGrid,
   ProductionCharts,
+  SeasonalityImpactChart,
+  InputPerformanceChart,
+  TopGrowers,
 } from '@/components/performance';
+import { GrowerComparisonChart } from '@/components/performance/GrowerComparisonChart';
 import { formatPHP } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
-type TabType = 'economics' | 'production';
+type TabType = 'leaderboard' | 'bonus' | 'analytics';
 
 export default function Performance() {
   const { user } = useAuthStore();
-  const { stats, isLoading, fetchPerformanceData, financialHistory } = usePerformanceStore();
-  const [activeTab, setActiveTab] = useState<TabType>('production');
+  const { stats, leaderboard, isLoading, fetchPerformanceData, financialHistory } = usePerformanceStore();
+  const [activeTab, setActiveTab] = useState<TabType>('leaderboard');
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
   const totalProfit = useMemo(() => {
     return financialHistory.reduce((sum, h) => sum + h.profit, 0);
@@ -29,25 +39,6 @@ export default function Performance() {
       fetchPerformanceData(user.orgId);
     }
   }, [user?.orgId, fetchPerformanceData]);
-
-
-
-  // Dynamic Header Content based on active tab
-  const headerData = useMemo(() => {
-    switch (activeTab) {
-      case 'production':
-        return {
-          title: "Performance",
-          description: "FCR trends, mortality rates, and efficiency metrics."
-        };
-      case 'economics':
-      default:
-        return {
-          title: "Financials",
-          description: "Profit margins, cost breakdowns, and ROI analysis."
-        };
-    }
-  }, [activeTab]);
 
   if (isLoading && !stats) {
     return (
@@ -64,9 +55,9 @@ export default function Performance() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
           <div>
-            <PageTitle>{headerData.title}</PageTitle>
+            <PageTitle>Performance</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {headerData.description}
+              Grower leaderboard, bonus calculations, and production analytics.
             </p>
           </div>
           <div className="flex gap-3">
@@ -77,79 +68,89 @@ export default function Performance() {
           </div>
         </div>
 
-        {/* Tab Navigation - Line Style */}
+        {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full">
           <LineTabsList className="w-fit border-b-0">
-            <LineTabsTrigger value="production">
-              <Icon name="Analytics01Icon" size={16} />
-              Production Analytics
+            <LineTabsTrigger value="leaderboard">
+              <Icon name="TrophyIcon" size={16} />
+              Leaderboard
             </LineTabsTrigger>
-            <LineTabsTrigger value="economics">
-              <Icon name="Money01Icon" size={16} />
-              Financials
+            <LineTabsTrigger value="bonus">
+              <Icon name="CalculatorIcon" size={16} />
+              Bonus Calculator
             </LineTabsTrigger>
-            {/* V2: Grower Performance tab quarantined */}
+            {isAdmin && (
+              <LineTabsTrigger value="analytics">
+                <Icon name="Analytics01Icon" size={16} />
+                Performance Analytics
+              </LineTabsTrigger>
+            )}
           </LineTabsList>
 
-          {/* Tab Content */}
-          <TabsContent value="production" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-[500px] mt-6">
+          {/* Leaderboard Tab */}
+          <TabsContent value="leaderboard" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-125 mt-6">
             <div className="space-y-10">
-              <KPIGrid stats={stats} />
-              <ProductionCharts />
+              <GrowerStats stats={stats} />
+              <TopGrowers entries={leaderboard} />
+              <GrowerTable />
             </div>
           </TabsContent>
 
-          {/* V2: Grower tab quarantined (TopGrowers, GrowerStats, GrowerTable, BonusCalculator) */}
+          {/* Bonus Calculator Tab */}
+          <TabsContent value="bonus" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-125 mt-6">
+            <BonusCalculator growers={leaderboard} />
+          </TabsContent>
 
-          <TabsContent value="economics" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-[500px] mt-6">
-            {/* Economic tab still uses some local logic/data but wired to main state where possible */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-6 bg-card border border-border rounded-xl">
-                      <h4 className="text-micro font-bold text-muted-foreground uppercase tracking-widest mb-2">Total Profit</h4>
-                      <div className="text-2xl font-black text-foreground">{formatPHP(totalProfit)}</div>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <span className="text-success text-[10px] font-bold">Live</span>
-                        <span className="text-muted-foreground text-[10px]">Lifetime net payout</span>
+          {/* Performance Analytics Tab — Admin only */}
+          {isAdmin && (
+            <TabsContent value="analytics" className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both min-h-125 mt-6">
+              <div className="space-y-10">
+                {/* KPI Summary */}
+                <KPIGrid stats={stats} />
+
+                {/* Production trends + cost */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    <ProductionCharts />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className={cn("p-6 bg-card border border-border rounded-xl")}>
+                        <h4 className="text-micro font-bold text-muted-foreground uppercase tracking-widest mb-2">Total Profit (All Time)</h4>
+                        <div className="text-2xl font-black text-foreground">{formatPHP(totalProfit)}</div>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <span className="text-success text-[10px] font-bold">Live</span>
+                          <span className="text-muted-foreground text-[10px]">Lifetime net payout</span>
+                        </div>
                       </div>
-                  </div>
-                  <div className="p-6 bg-card border border-border rounded-xl">
-                      <h4 className="text-micro font-bold text-muted-foreground uppercase tracking-widest mb-2">Overall Performance</h4>
-                      <div className="text-2xl font-black text-foreground">{stats?.epef.toFixed(0) || '0'}</div>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <span className="text-primary text-[10px] font-bold">Top 5%</span>
-                        <span className="text-muted-foreground text-[10px]">Efficiency Rank</span>
+                      <div className={cn("p-6 bg-card border border-border rounded-xl")}>
+                        <h4 className="text-micro font-bold text-muted-foreground uppercase tracking-widest mb-2">Overall EPEF</h4>
+                        <div className="text-2xl font-black text-foreground">{stats?.epef.toFixed(0) || '—'}</div>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <span className="text-primary text-[10px] font-bold">Org Average</span>
+                          <span className="text-muted-foreground text-[10px]">All closed cycles</span>
+                        </div>
                       </div>
-                  </div>
-                </div>
-                {/* V2: FinancialTrendChart quarantined */}
-                <div className="p-8 text-center text-muted-foreground">
-                  <p className="text-xs font-bold uppercase tracking-widest">Financial Trend Analysis</p>
-                  <p className="text-micro mt-1">Coming in v2</p>
-                </div>
-              </div>
-              <div className="space-y-8">
-                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                  <CostDistributionChart />
-                </div>
-                <div className="p-8 border border-primary/20 bg-primary/5 rounded-xl relative z-10">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                      <Icon name="Alert01Icon" size={20} />
                     </div>
-                    <h4 className="text-caption font-bold text-primary uppercase tracking-widest">Payment Alerts</h4>
+
+                    <FinancialTrendChart />
                   </div>
-                  <p className="text-micro font-medium text-muted-foreground leading-loose mb-8">
-                    3 batches are ready for payment. Estimated profit: <span className="text-primary font-bold text-sm bg-primary/10 px-1 rounded">₱185k</span>.
-                  </p>
-                  <Button className="w-full h-11 bg-warning hover:bg-warning/90 text-warning-foreground font-black uppercase tracking-[0.2em] text-micro shadow-lg shadow-warning/20 transition-all active:scale-95">
-                    Finalize All Payments
-                  </Button>
+
+                  <div className="space-y-8">
+                    <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+                      <CostDistributionChart />
+                    </div>
+                    <SeasonalityImpactChart />
+                  </div>
+                </div>
+
+                {/* Input Performance + Grower Comparison */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <InputPerformanceChart />
+                  <GrowerComparisonChart growers={leaderboard} />
                 </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

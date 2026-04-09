@@ -32,7 +32,7 @@ const GrowerTable: React.FC = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Grower Leaderboard</h3>
-                    <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+                    <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
                         {leaderboard.length} TOTAL
                     </span>
                 </div>
@@ -64,7 +64,10 @@ const GrowerTable: React.FC = () => {
                                 <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest">Grower Profile</th>
                                 <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-center">Status</th>
                                 <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">EPEF</th>
+                                <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Cycles</th>
+                                <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Last Batch</th>
                                 <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Efficiency</th>
+                                <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Trend</th>
                                 <th className="px-6 py-4 text-micro font-bold text-muted-foreground uppercase tracking-widest text-right">Points</th>
                             </tr>
                         </thead>
@@ -100,6 +103,10 @@ const GrowerTable: React.FC = () => {
                                          </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-black text-foreground text-xs tabular-nums font-data">{grower.epef}</td>
+                                    <td className="px-6 py-4 text-right text-xs font-bold text-foreground tabular-nums font-data">{grower.cyclesCompleted}</td>
+                                    <td className="px-6 py-4 text-right text-xs text-muted-foreground font-data">
+                                        {grower.lastBatchDate ? new Date(grower.lastBatchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}
+                                    </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex flex-col items-end gap-1">
                                             <div className="w-24 h-1 bg-muted rounded-full overflow-hidden">
@@ -110,6 +117,14 @@ const GrowerTable: React.FC = () => {
                                             </div>
                                             <span className="text-micro font-black text-muted-foreground font-data">{grower.efficiency.toFixed(1)}%</span>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <span className={cn(
+                                          'text-sm font-black',
+                                          grower.trend === 'up' ? 'text-green-500' : grower.trend === 'down' ? 'text-red-400' : 'text-muted-foreground'
+                                        )}>
+                                          {grower.trend === 'up' ? '↑' : grower.trend === 'down' ? '↓' : '—'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <span className="inline-flex items-center px-2 py-1 rounded-lg text-micro font-black bg-primary/5 text-primary/70 border border-primary/10 tracking-widest uppercase font-data">

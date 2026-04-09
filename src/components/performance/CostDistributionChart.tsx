@@ -15,8 +15,8 @@ export function CostDistributionChart({ className }: CostDistributionChartProps)
         <div className={cn("bg-card border border-border rounded-2xl shadow-sm overflow-hidden", className)}>
             <div className="p-6">
                 <h3 className="text-lg font-bold text-foreground mb-6">Cost Distribution</h3>
-                <div className="h-[400px] md:h-[300px] w-full flex flex-col md:flex-row items-center">
-                    <div className="w-full md:w-1/2 h-[200px] md:h-full">
+                <div className="h-100 md:h-75 w-full flex flex-col md:flex-row items-center">
+                    <div className="w-full md:w-1/2 h-50 md:h-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -40,7 +40,6 @@ export function CostDistributionChart({ className }: CostDistributionChartProps)
                                         fontSize: '12px',
                                         color: 'var(--popover-foreground)'
                                     }}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     formatter={(value: any) => `₱${Number(value).toLocaleString()}`}
                                 />
                             </PieChart>
@@ -54,7 +53,7 @@ export function CostDistributionChart({ className }: CostDistributionChartProps)
                             <div key={item.name} className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                    <span className="text-xs text-muted-foreground truncate max-w-[100px]">{item.name}</span>
+                                    <span className="text-xs text-muted-foreground truncate max-w-25">{item.name}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className="text-xs font-bold text-foreground block">₱{(item.value / 1000).toFixed(1)}k</span>

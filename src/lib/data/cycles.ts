@@ -5,7 +5,7 @@ import {
   type DeliveredInputRow,
   type HealthRecordWithVeterinarianRow,
   type HarvestSaleRow,
-  type VaccinationScheduleRow,
+  type VaccinationScheduleWithProfile,
 } from '@/lib/data-adapters';
 import { getCycles } from '@/lib/queries/cycles';
 import type { Tables, TablesInsert } from '@/types/supabase';
@@ -25,7 +25,7 @@ export interface CycleDetailsData {
   cycle: CycleDetailsState;
   dailyLogs: Tables<'daily_logs'>[];
   healthRecords: HealthRecordWithVeterinarianRow[];
-  vaccinationSchedules: VaccinationScheduleRow[];
+  vaccinationSchedules: VaccinationScheduleWithProfile[];
   harvestRecords: Tables<'harvest_logs'>[];
   salesRecords: HarvestSaleRow[];
   deliveredInputs: DeliveredInputRow[];
@@ -115,7 +115,10 @@ export async function fetchCycleDetails(cycleId: string): Promise<CycleDetailsDa
       { data: expenses, error: expensesError },
     ] = await Promise.all([
       supabase.from('daily_logs').select('*').eq('cycle_id', cycleId).order('log_date', { ascending: false }),
-      supabase.from('vaccination_schedules').select('*').eq('cycle_id', cycleId).order('scheduled_date', { ascending: true }),
+      supabase.from('vaccination_schedules').select(`
+        *,
+        verified_by:profiles!vaccination_schedules_verified_by_tech_id_fkey(first_name, last_name)
+      `).eq('cycle_id', cycleId).order('scheduled_date', { ascending: true }),
       supabase
         .from('health_records')
         .select(`
@@ -152,7 +155,7 @@ export async function fetchCycleDetails(cycleId: string): Promise<CycleDetailsDa
       },
       dailyLogs: logs || [],
       healthRecords: (health as HealthRecordWithVeterinarianRow[]) || [],
-      vaccinationSchedules: (vaccs as VaccinationScheduleRow[]) || [],
+      vaccinationSchedules: (vaccs as VaccinationScheduleWithProfile[]) || [],
       harvestRecords: harvests || [],
       salesRecords: (sales as HarvestSaleRow[]) || [],
       deliveredInputs: (inputs as DeliveredInputRow[]) || [],

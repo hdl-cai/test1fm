@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   fetchDashboardData,
   type ChartData,
+  type DashboardData,
   type DashboardStats,
   type FlockSummaryItem,
   type PendingApproval,
@@ -19,6 +20,7 @@ export function useDashboardData() {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [flockSummary, setFlockSummary] = useState<FlockSummaryItem[]>([]);
+  const [latestMarketPrice, setLatestMarketPrice] = useState<DashboardData['latestMarketPrice']>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -37,6 +39,7 @@ export function useDashboardData() {
         setChartData(data.chartData);
         setPendingApprovals(data.pendingApprovals);
         setFlockSummary(data.flockSummary);
+        setLatestMarketPrice(data.latestMarketPrice);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
@@ -47,5 +50,5 @@ export function useDashboardData() {
     fetchData();
   }, [user?.orgId]);
 
-  return { stats, chartData, pendingApprovals, flockSummary, isLoading };
+  return { stats, chartData, pendingApprovals, flockSummary, latestMarketPrice, isLoading };
 }

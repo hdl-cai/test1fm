@@ -1,173 +1,216 @@
 import * as React from 'react';
-import { cn } from '@/lib/utils';
-import { MetricCard, DataTablePagination } from '@/components/shared';
+import { MetricCard } from '@/components/shared';
 import { Icon } from '@/hooks/useIcon';
-import { StatusBadge } from '@/components/shared/StatusBadge';
-import type { HealthRecordWithVeterinarianRow, VaccinationScheduleRow } from '@/lib/data-adapters';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { VaccinationTimeline } from '@/components/health/VaccinationTimeline';
+import { VaccinationCalendar } from '@/components/health/VaccinationCalendar';
+import { HealthEventsTable } from '@/components/health/HealthEventsTable';
+import { AddHealthEventSheet } from '@/components/health/AddHealthEventSheet';
+import { RescheduleVaccineSheet } from '@/components/health/RescheduleVaccineSheet';
+import type { HealthRecordWithVeterinarianRow, VaccinationScheduleWithProfile } from '@/lib/data-adapters';
+
+type HealthSubTab = 'vaccination' | 'health-events';
+type VaxView = 'timeline' | 'calendar';
 
 interface HealthTabProps {
-    healthRecords?: HealthRecordWithVeterinarianRow[];
-    vaccinationSchedules?: VaccinationScheduleRow[];
+  healthRecords?: HealthRecordWithVeterinarianRow[];
+  vaccinationSchedules?: VaccinationScheduleWithProfile[];
+  cycleId: string;
+  orgId: string;
+  userId: string;
+  userRole: string;
+  cycleStartDate?: Date | null;
+  onRefetch: () => void;
 }
 
-export function HealthTab({ healthRecords = [], vaccinationSchedules = [] }: HealthTabProps) {
-    const [currentPage, setCurrentPage] = React.useState(1);
-    const itemsPerPage = 10;
-    const totalPages = Math.ceil(healthRecords.length / itemsPerPage);
-    const paginatedRecords = healthRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+export function HealthTab({
+  healthRecords = [],
+  vaccinationSchedules = [],
+  cycleId,
+  orgId,
+  userId,
+  userRole,
+  cycleStartDate,
+  onRefetch,
+}: HealthTabProps) {
+  const [subTab, setSubTab] = React.useState<HealthSubTab>('vaccination');
+  const [vaxView, setVaxView] = React.useState<VaxView>('timeline');
+  const [isAddEventOpen, setIsAddEventOpen] = React.useState(false);
+  const [calendarReschedule, setCalendarReschedule] = React.useState<{
+    schedule: VaccinationScheduleWithProfile;
+    newDate: string;
+  } | null>(null);
 
-    const formatRecordTypeLabel = (recordType: string) =>
-        recordType
-            .split('_')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+  const isAdmin = ['owner', 'admin'].includes(userRole);
 
-    const getVeterinarianName = (record: HealthRecordWithVeterinarianRow) => {
-        const firstName = record.veterinarian?.first_name?.trim() || '';
-        const lastName = record.veterinarian?.last_name?.trim() || '';
-        const fullName = `${firstName} ${lastName}`.trim();
+  const completedVax = vaccinationSchedules.filter(v => v.status === 'completed').length;
+  const overdueVax = vaccinationSchedules.filter(v => v.status === 'overdue').length;
+  const vaccinationCoverage = vaccinationSchedules.length > 0
+    ? Math.round((completedVax / vaccinationSchedules.length) * 100)
+    : 0;
 
-        return fullName || 'System';
-    };
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Quick Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <MetricCard
+          title="Vaccination Progress"
+          value={`${completedVax}/${vaccinationSchedules.length}`}
+          subtitle="Doses administered"
+          icon="ActivityIcon"
+          iconColor="hsl(var(--primary))"
+          variant="gauge"
+          gaugeValue={vaccinationCoverage}
+          statusBadge={
+            overdueVax > 0
+              ? { label: `${overdueVax} Overdue`, type: 'danger' }
+              : completedVax === vaccinationSchedules.length && vaccinationSchedules.length > 0
+              ? { label: 'Fully Vaccinated', type: 'success' }
+              : { label: 'In Progress', type: 'warning' }
+          }
+        />
+        <MetricCard
+          title="Health Events"
+          value={healthRecords.length.toString()}
+          subtitle="Recorded this cycle"
+          icon="MedicalFileIcon"
+          iconColor="hsl(var(--danger))"
+        />
+        <MetricCard
+          title="Last Health Event"
+          value={
+            healthRecords[0]
+              ? new Date(healthRecords[0].record_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              : 'N/A'
+          }
+          subtitle="Most recent observation"
+          icon="CalendarIcon"
+          iconColor="hsl(var(--warning))"
+        />
+        <MetricCard
+          title="Overdue Vaccines"
+          value={overdueVax.toString()}
+          subtitle="Need immediate attention"
+          icon="AlertCircleIcon"
+          iconColor={overdueVax > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))'}
+          statusBadge={overdueVax > 0 ? { label: 'Action Required', type: 'danger' } : undefined}
+        />
+      </div>
 
-    // Filter vaccinations
-    const completedVaccinations = vaccinationSchedules.filter(v => v.status === 'completed');
-    const upcomingVaccinations = vaccinationSchedules.filter(v => v.status === 'scheduled');
+      {/* Sub-tab nav */}
+      <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl w-fit">
+        {([
+          { key: 'vaccination', label: 'Vaccination Schedule', icon: 'MedicineIcon' },
+          { key: 'health-events', label: 'Health Events', icon: 'MedicalFileIcon' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setSubTab(tab.key)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
+              subTab === tab.key
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Icon name={tab.icon} size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-    return (
-        <div className="space-y-10 animate-in fade-in duration-700">
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <MetricCard
-                    title="Vaccination Status"
-                    value={`${completedVaccinations.length}/${vaccinationSchedules.length}`}
-                    subtitle="Doses administered"
-                    icon="ActivityIcon"
-                    iconColor="hsl(var(--primary))"
-                    statusBadge={{ label: upcomingVaccinations.length > 0 ? 'Upcoming' : 'Fully Vaccinated', type: upcomingVaccinations.length > 0 ? 'warning' : 'success' }}
-                />
-                <MetricCard
-                    title="Health Incidents"
-                    value={healthRecords.length.toString()}
-                    subtitle="Recorded this cycle"
-                    icon="ActivityIcon"
-                    iconColor="hsl(var(--danger))"
-                />
-                <MetricCard
-                    title="Last Checkup"
-                    value={healthRecords[0] ? new Date(healthRecords[0].record_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                    subtitle="Latest health observation"
-                    icon="CalendarIcon"
-                    iconColor="hsl(var(--warning))"
-                />
-                <MetricCard
-                    title="Wellness Index"
-                    value="98%"
-                    subtitle="Overall flock health"
-                    variant="gauge"
-                    gaugeValue={98}
-                />
+      {/* Sub-tab content */}
+      {subTab === 'vaccination' && (
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          {/* View toggle */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-micro font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Immunization Schedule</h3>
+              <p className="text-lg font-bold text-foreground">Vaccination Schedule</p>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Vaccination Timeline */}
-                <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 relative overflow-hidden shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 className="text-micro font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Immunization Pathway</h3>
-                            <p className="text-lg font-bold text-foreground">Vaccination Timeline</p>
-                        </div>
-                    </div>
-
-                    <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border before:opacity-50">
-                        {vaccinationSchedules.length > 0 ? (
-                            vaccinationSchedules.map((vaccine, idx) => (
-                                <div key={vaccine.id || idx} className="relative group">
-                                    <div className={cn(
-                                        "absolute -left-8 top-1.5 w-7 h-7 rounded-full border-4 border-card flex items-center justify-center transition-all duration-300",
-                                        vaccine.status === 'completed' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-muted-foreground/20"
-                                    )}>
-                                        {vaccine.status === 'completed' ? <Icon name="CheckmarkIcon" size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground uppercase tracking-tight">{vaccine.vaccine_name || 'Vaccination'}</p>
-                                            <p className="text-micro text-muted-foreground font-bold uppercase tracking-widest mt-0.5 italic">Method: {vaccine.admin_method || 'Standard'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-micro font-bold text-muted-foreground tabular-nums uppercase tracking-widest bg-muted/30 px-2 py-1 rounded border border-border/50">
-                                                {new Date(vaccine.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            </span>
-                                            <StatusBadge 
-                                                status={vaccine.status === 'completed' ? 'success' : 'warning'} 
-                                                label={vaccine.status === 'completed' ? 'Done' : 'Upcoming'}
-                                                size="sm"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-muted-foreground text-sm italic py-4">No vaccination schedule found for this cycle.</div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Health Monitoring Section */}
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                    <div className="mb-6">
-                        <h3 className="text-micro font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Health Records</h3>
-                        <p className="text-lg font-bold text-foreground">Medical History</p>
-                    </div>
-
-                    <div className="space-y-4">
-                        {paginatedRecords.length > 0 ? (
-                            paginatedRecords.map((record) => (
-                                <div key={record.id} className="p-4 bg-muted/30 rounded-xl border border-border/50 group hover:border-primary/30 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-foreground uppercase tracking-tight">{record.subject || 'Observation'}</span>
-                                            <span className="text-micro text-muted-foreground font-bold uppercase tracking-widest mt-0.5">
-                                                {new Date(record.record_date).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <StatusBadge 
-                                            status={record.is_gahp_compliant ? 'completed' : 'pending'}
-                                            size="sm" 
-                                            label={formatRecordTypeLabel(record.record_type || 'inspection')}
-                                        />
-                                    </div>
-                                    <p className="text-micro text-muted-foreground font-bold uppercase tracking-widest italic line-clamp-2 mt-2">{record.notes || 'No notes recorded'}</p>
-                                    <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
-                                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                            <Icon name="UserIcon" size={10} />
-                                        </div>
-                                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Recorded by {getVeterinarianName(record)}</span>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-10">
-                                <Icon name="ActivityIcon" size={32} className="mx-auto mb-4 text-muted/30" />
-                                <p className="text-micro font-bold text-muted-foreground uppercase tracking-widest italic">No clinical records</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {totalPages > 1 && (
-                        <div className="mt-6 flex justify-center">
-                             <DataTablePagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                onPageChange={setCurrentPage}
-                                pageSize={itemsPerPage}
-                                totalItems={healthRecords.length}
-                                itemName="Record"
-                            />
-                        </div>
-                    )}
-                </div>
+            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg">
+              <button
+                onClick={() => setVaxView('timeline')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                  vaxView === 'timeline' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon name="ListIcon" size={12} />
+                Timeline
+              </button>
+              <button
+                onClick={() => setVaxView('calendar')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                  vaxView === 'calendar' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon name="CalendarIcon" size={12} />
+                Calendar
+              </button>
             </div>
+          </div>
+
+          {vaxView === 'timeline' ? (
+            <VaccinationTimeline
+              schedules={vaccinationSchedules}
+              cycleId={cycleId}
+              userId={userId}
+              isAdmin={isAdmin}
+              onRefetch={onRefetch}
+            />
+          ) : (
+            <VaccinationCalendar
+              schedules={vaccinationSchedules}
+              cycleStartDate={cycleStartDate ?? null}
+              isAdmin={isAdmin}
+              onScheduleDrop={(schedule, newDate) => setCalendarReschedule({ schedule, newDate })}
+            />
+          )}
         </div>
-    );
+      )}
+
+      {subTab === 'health-events' && (
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-micro font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Clinical Records</h3>
+              <p className="text-lg font-bold text-foreground">Health Events Log</p>
+            </div>
+            {isAdmin && (
+              <Button onClick={() => setIsAddEventOpen(true)}>
+                <Icon name="PlusSignIcon" size={14} className="mr-2" />
+                Add Health Event
+              </Button>
+            )}
+          </div>
+
+          <HealthEventsTable
+            records={healthRecords}
+            onAddEvent={() => setIsAddEventOpen(true)}
+            isAdmin={isAdmin}
+          />
+        </div>
+      )}
+
+      <AddHealthEventSheet
+        isOpen={isAddEventOpen}
+        onClose={() => setIsAddEventOpen(false)}
+        cycleId={cycleId}
+        orgId={orgId}
+        userId={userId}
+        onSaved={onRefetch}
+      />
+
+      <RescheduleVaccineSheet
+        isOpen={!!calendarReschedule}
+        onClose={() => setCalendarReschedule(null)}
+        schedule={calendarReschedule?.schedule ?? null}
+        initialDate={calendarReschedule?.newDate}
+        onSaved={onRefetch}
+      />
+    </div>
+  );
 }

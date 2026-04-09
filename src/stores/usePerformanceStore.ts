@@ -22,10 +22,15 @@ export interface LeaderboardEntry {
   epef: number;
   points: number;
   rank: number;
+  rankAtClose: number | null;
+  careerTier: 'training' | 'junior' | 'senior' | 'elite' | null;
   trend: 'up' | 'down' | 'neutral';
   efficiency: number; // Percentage
   status: 'Elite' | 'Senior' | 'Junior' | 'Training';
   lastBatchDate: string;
+  fcr: number;
+  mortalityPct: number;
+  cyclesCompleted: number;
 }
 
 export interface ChartDataPoint {

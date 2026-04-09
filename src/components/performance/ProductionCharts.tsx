@@ -16,7 +16,6 @@ import {
     Cell
 } from 'recharts';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         const val = payload[0].value;
@@ -35,7 +34,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ComparativeTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
@@ -80,7 +78,7 @@ const FCRTrendChart: React.FC<ChartProps> = ({ data }) => {
                 </div>
             </div>
 
-            <div className="h-[300px] w-full">
+            <div className="h-75 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.map(d => ({ month: d.label, value: d.value }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
@@ -119,7 +117,6 @@ const FCRTrendChart: React.FC<ChartProps> = ({ data }) => {
                             fillOpacity={1}
                             fill="url(#colorFcr)"
                             animationDuration={1500}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             dot={(props: any) => {
                                 const { cx, cy, value } = props;
                                 return (
@@ -154,7 +151,7 @@ const SeasonalityChart: React.FC<ChartProps> = ({ data }) => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-[220px]">
+            <div className="flex-1 min-h-55">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.map(d => ({ name: d.label, val: d.value }))} margin={{ top: 10, right: 0, left: -30, bottom: 0 }}>
                         <XAxis
@@ -230,7 +227,7 @@ const ComparativeChart = () => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-[220px]">
+            <div className="flex-1 min-h-55">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }} barGap={8}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />

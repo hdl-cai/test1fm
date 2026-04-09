@@ -211,7 +211,7 @@ export function AddNewFarmSheet({ isOpen, onClose }: AddNewFarmSheetProps) {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 h-11 px-8 rounded-lg transition-colors transition-shadow transition-[width] transition-[height] group"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 h-11 px-8 rounded-lg transition-[color,box-shadow,width,height] group"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">

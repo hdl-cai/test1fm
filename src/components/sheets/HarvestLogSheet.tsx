@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { addHarvestLogRecord } from '@/lib/data/cycles';
 import { getErrorMessage } from '@/lib/data/errors';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useMarketStore } from '@/stores/useMarketStore';
 
 interface HarvestLogSheetProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ interface HarvestLogSheetProps {
 
 export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: HarvestLogSheetProps) {
   const authOrgId = useAuthStore((state) => state.user?.orgId);
+  const resolvedOrgId = authOrgId ?? orgId;
+  const { latestPrices, fetchLatestPrice } = useMarketStore();
   const [formData, setFormData] = React.useState({
     harvestDateStart: new Date().toISOString().split('T')[0],
     birdsHarvestedCount: '',
@@ -28,9 +31,32 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
     loadingLossCount: '',
     fleetUsed: '',
     harvestTeamNotes: '',
+    salePricePerKg: '',
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // Fetch latest market price on open
+  React.useEffect(() => {
+    if (isOpen && resolvedOrgId) {
+      fetchLatestPrice(resolvedOrgId, 'Luzon');
+    }
+  }, [isOpen, resolvedOrgId, fetchLatestPrice]);
+
+  const latestMarketPrice = latestPrices['Luzon'] ?? null;
+
+  // 15% soft warning: compare entered sale price to current market price
+  const priceDeviationWarning = React.useMemo(() => {
+    if (!formData.salePricePerKg || !latestMarketPrice) return null;
+    const entered = parseFloat(formData.salePricePerKg);
+    if (isNaN(entered) || entered <= 0) return null;
+    const market = latestMarketPrice.farmgate_price_per_kg;
+    const deviation = (market - entered) / market;
+    if (deviation > 0.15) {
+      return `Entered price ₱${entered.toFixed(2)}/kg is ${(deviation * 100).toFixed(0)}% below the current market rate of ₱${market.toFixed(2)}/kg (Luzon). Confirm before proceeding.`;
+    }
+    return null;
+  }, [formData.salePricePerKg, latestMarketPrice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +88,7 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
         loadingLossCount: '',
         fleetUsed: '',
         harvestTeamNotes: '',
+        salePricePerKg: '',
       });
       onSaved?.();
       onClose();
@@ -82,6 +109,7 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
       loadingLossCount: '',
       fleetUsed: '',
       harvestTeamNotes: '',
+      salePricePerKg: '',
     });
     setSubmitError(null);
     onClose();
@@ -100,6 +128,56 @@ export function HarvestLogSheet({ isOpen, onClose, cycleId, orgId, onSaved }: Ha
         {submitError && (
           <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
             {submitError}
+          </div>
+        )}
+
+        {/* Market Price Reference */}
+        {latestMarketPrice && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/15 flex items-center gap-3">
+            <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <Icon name="TrendingUpIcon" size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-micro font-bold uppercase tracking-[0.15em] text-muted-foreground mb-0.5">Current Market Reference</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-bold text-foreground">Live: ₱{latestMarketPrice.farmgate_price_per_kg.toFixed(2)}/kg</span>
+                {latestMarketPrice.price_per_kg_carcass && (
+                  <span className="text-sm text-muted-foreground">Carcass: ₱{Number(latestMarketPrice.price_per_kg_carcass).toFixed(2)}/kg</span>
+                )}
+                <span className="text-micro text-muted-foreground/60 italic">{latestMarketPrice.region} · {latestMarketPrice.price_date}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sale Price (optional) — used for 15% market warning */}
+        {latestMarketPrice && (
+          <div className="space-y-2">
+            <Label htmlFor="sale-price" className="text-micro font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+              Expected Sale Price (optional)
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₱</span>
+              <Input
+                id="sale-price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={latestMarketPrice.farmgate_price_per_kg.toFixed(2)}
+                value={formData.salePricePerKg}
+                onChange={(e) => setFormData({ ...formData, salePricePerKg: e.target.value })}
+                className="pl-7 w-full bg-muted/20 border-border border focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground/30 transition-colors h-11"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Enter the agreed sale price per kg to check against the current market rate.</p>
+          </div>
+        )}
+
+        {/* 15% Soft Warning */}
+        {priceDeviationWarning && (
+          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-start gap-2">
+            <Icon name="AlertCircleIcon" size={16} className="shrink-0 mt-0.5 text-warning" />
+            <p className="text-sm text-warning font-medium">{priceDeviationWarning}</p>
           </div>
         )}
 

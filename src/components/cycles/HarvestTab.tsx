@@ -144,7 +144,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
                         <StatusBadge status="audit_passed" size="sm" animate />
                     </div>
 
-                    <div className="h-[250px]">
+                    <div className="h-62.5">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={reconciliationData} layout="vertical" margin={{ left: 20, right: 30 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} opacity={0.3} />
@@ -184,7 +184,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
                         ))}
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-linear-to-br from-white/1 to-transparent pointer-events-none" />
                 </div>
 
                 {/* Logistics Info Card */}
@@ -231,7 +231,7 @@ export function HarvestTab({ logs, cycleId, orgId, userId, userRole, onHarvestSa
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-1">
                     <div className="flex items-center gap-3">
                         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Harvest Records</h3>
-                        <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+                        <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
                             {logs.length} TOTAL
                         </span>
                     </div>
