@@ -1,24 +1,26 @@
 /**
- * Finance Page
+ * Finance Page — v2
  * 
- * Main page for financial management. Displays:
- * - Overview: Summary cards, recent transactions
- * - Expenses: Expense table with categories
+ * 4-tab layout: Overview, Expenses, Payroll, Cash Advances
  */
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { DesktopOnlyGuard } from '@/components/shared/DesktopOnlyGuard';
 import { PageTitle } from '@/components/ui/page-title';
 import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { SettlementStatementSheet } from '@/components/sheets';
 import { FinanceOverview } from '@/components/finance/FinanceOverview';
 import { ExpenseTable } from '@/components/finance/ExpenseTable';
 import { ReceiptViewer } from '@/components/finance/ReceiptViewer';
-// V2: PayrollStats, PayrollRecordTable, CashAdvanceTable, CashAdvanceReviewSheet quarantined
+import { PayrollTab } from '@/components/finance/PayrollTab';
+import { CashAdvancesTab } from '@/components/finance/CashAdvancesTab';
 import {
   ArrowDown01Icon,
   Download01Icon,
   DashboardIcon,
+  UsersIcon,
+  CreditCardIcon,
 } from '@/hooks/useIcon';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { formatPHP } from '@/lib/utils';
@@ -27,7 +29,7 @@ import { useFinanceStore } from '@/stores/useFinanceStore';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { Transaction } from '@/types';
 
-type TabType = 'overview' | 'expenses';
+type TabType = 'overview' | 'expenses' | 'payroll' | 'cash-advances';
 
 
 
@@ -64,6 +66,7 @@ export default function Finance() {
   }, [transactions]);
 
   return (
+    <DesktopOnlyGuard message="Finance, payroll, and cash advance management works best on a desktop browser.">
     <div className="p-4 md:p-8 space-y-8">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -103,7 +106,14 @@ export default function Finance() {
             <ArrowDown01Icon size={14} />
             Expenses
           </LineTabsTrigger>
-          {/* V2: Payroll and Cash Advance tabs quarantined */}
+          <LineTabsTrigger value="payroll">
+            <UsersIcon size={14} />
+            Payroll
+          </LineTabsTrigger>
+          <LineTabsTrigger value="cash-advances">
+            <CreditCardIcon size={14} />
+            Cash Advances
+          </LineTabsTrigger>
         </LineTabsList>
 
         {/* Tab Content Section */}
@@ -122,7 +132,27 @@ export default function Finance() {
           />
         </TabsContent>
 
-        {/* V2: Payroll and CashAdvance TabsContent quarantined */}
+        <TabsContent value="payroll" className="animate-in fade-in duration-300 mt-6">
+          {user && (
+            <PayrollTab
+              orgId={user.orgId || ''}
+              userId={user.id}
+              userRole={user.role || ''}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="cash-advances" className="animate-in fade-in duration-300 mt-6">
+          {user && (
+            <CashAdvancesTab
+              orgId={user.orgId || ''}
+              userId={user.id}
+              userRole={user.role || ''}
+            />
+          )}
+        </TabsContent>
+
+        {/* V2: Old Payroll and CashAdvance TabsContent removed — now in dedicated tabs above */}
       </Tabs>
 
       {isLoading && (
@@ -167,5 +197,6 @@ export default function Finance() {
         />
       )}
     </div>
+    </DesktopOnlyGuard>
   );
 }

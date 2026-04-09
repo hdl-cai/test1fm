@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PageTitle } from '@/components/ui/page-title';
@@ -7,34 +7,70 @@ import { Tabs, LineTabsList, LineTabsTrigger, TabsContent } from '@/components/u
 import { Icon } from '@/hooks/useIcon';
 import { useFarmsStore } from '@/stores/useFarmsStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useSensorsStore } from '@/stores/useSensorsStore';
+import { FarmSensorSettings } from '@/components/sensors/FarmSensorSettings';
+import { SensorCard } from '@/components/sensors/SensorCard';
+import { SensorHistoryChart } from '@/components/sensors/SensorHistoryChart';
 import { MetricCard, StatusBadge, DataTablePagination } from '@/components/shared';
 import { cn } from '@/lib/utils';
 import type { Farm } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 
-type TabType = 'overview' | 'history' | 'personnel';
+type TabType = 'overview' | 'environment' | 'history' | 'personnel';
 
 export default function FarmDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { farms, farmHistory, farmPersonnel, farmStock, isLoading, fetchFarms, fetchFarmDetails } = useFarmsStore();
     const { user } = useAuthStore();
+    const {
+        getSensorsByFarmId,
+        history: sensorHistory,
+        thresholds,
+        isSaving: sensorsSaving,
+        fetchSensors,
+        fetchHistory,
+        fetchThresholds,
+        saveThreshold,
+        toggleFarmSensors,
+        addSensorNode,
+        deactivateSensorNode,
+    } = useSensorsStore();
     
     const farm = farms.find((f) => f.id === id);
-    const [activeTab, setActiveTab] = React.useState<TabType>('overview');
+    const [activeTab, setActiveTab] = React.useState<TabType>((searchParams.get('tab') as TabType) || 'overview');
+    const [environmentPeriod, setEnvironmentPeriod] = React.useState<'24h' | '7d' | '30d'>('24h');
+    const farmSensors = React.useMemo(() => (id ? getSensorsByFarmId(id) : []), [getSensorsByFarmId, id]);
 
     React.useEffect(() => {
         if (user?.orgId) {
-            fetchFarms(user.orgId);
+            void fetchFarms(user.orgId);
+            void fetchSensors(user.orgId);
         }
-    }, [user?.orgId, fetchFarms]);
+    }, [user?.orgId, fetchFarms, fetchSensors]);
 
     React.useEffect(() => {
         if (id) {
-            fetchFarmDetails(id);
+            void fetchFarmDetails(id);
         }
     }, [id, fetchFarmDetails]);
+
+    React.useEffect(() => {
+        if (user?.orgId && id) {
+            const days = environmentPeriod === '24h' ? 1 : environmentPeriod === '7d' ? 7 : 30;
+            void fetchHistory(user.orgId, { farmId: id, days });
+            void fetchThresholds(user.orgId, id);
+        }
+    }, [environmentPeriod, fetchHistory, fetchThresholds, id, user?.orgId]);
+
+    React.useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam === 'overview' || tabParam === 'environment' || tabParam === 'history' || tabParam === 'personnel') {
+            setActiveTab(tabParam);
+        }
+    }, [searchParams]);
 
     if (isLoading && !farm) {
         return (
@@ -59,6 +95,7 @@ export default function FarmDetails() {
 
     const tabs: { id: TabType; label: string; icon: string }[] = [
         { id: 'overview', label: 'Overview', icon: 'Layout03Icon' },
+        { id: 'environment', label: 'Environment', icon: 'SensorIcon' },
         { id: 'history', label: 'Production History', icon: 'Clock01Icon' },
         { id: 'personnel', label: 'Assigned Personnel', icon: 'UserGroupIcon' },
     ];
@@ -70,7 +107,7 @@ export default function FarmDetails() {
                 onClick={() => navigate('/farms')}
                 className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group mb-2"
             >
-                <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors transition-transform transition-[width] transition-[height] active:scale-95">
+                <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center group-hover:bg-primary/10 group-hover:border-primary/20 transition-all active:scale-95">
                     <Icon name="ArrowLeft01Icon" size={14} />
                 </div>
                 <span className="text-micro font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform">Back to Farms</span>
@@ -79,7 +116,7 @@ export default function FarmDetails() {
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-xl bg-muted border border-border flex items-center justify-center text-primary group transition-colors transition-[width] transition-[height] duration-300">
+                    <div className="w-16 h-16 rounded-xl bg-muted border border-border flex items-center justify-center text-primary group transition-all duration-300">
                         <Icon name="FarmIcon" size={32} className="transition-transform group-hover:scale-110" />
                     </div>
                     <div>
@@ -106,7 +143,11 @@ export default function FarmDetails() {
             </div>
 
             {/* Tabs Navigation - Line Style */}
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => {
+                const nextTab = value as TabType;
+                setActiveTab(nextTab);
+                setSearchParams(nextTab === 'overview' ? {} : { tab: nextTab });
+            }} className="w-full">
                 <LineTabsList className="bg-card/50 border-b border-border px-6 sticky top-0 z-20 backdrop-blur-sm">
                     {tabs.map((tab) => (
                         <LineTabsTrigger key={tab.id} value={tab.id}>
@@ -118,7 +159,32 @@ export default function FarmDetails() {
 
                 <div className="p-8 pb-16">
                     <TabsContent value="overview" className="animate-in fade-in duration-700 m-0">
-                        <OverviewTab farm={farm} history={farmHistory} stock={farmStock} />
+                        <OverviewTab farm={farm} history={farmHistory} stock={farmStock} sensors={farmSensors} />
+                    </TabsContent>
+                    <TabsContent value="environment" className="animate-in fade-in duration-700 m-0">
+                        <EnvironmentTab
+                            farm={farm}
+                            sensors={farmSensors}
+                            thresholds={thresholds}
+                            history={sensorHistory}
+                            period={environmentPeriod}
+                            isSaving={sensorsSaving}
+                            onPeriodChange={setEnvironmentPeriod}
+                            onToggleEnabled={async (enabled) => {
+                                if (!id || !user?.orgId) return;
+                                await toggleFarmSensors(id, enabled);
+                                await fetchFarms(user.orgId);
+                            }}
+                            onSaveThreshold={async (input) => {
+                                if (!id || !user?.orgId || !user.id) return;
+                                await saveThreshold({ ...input, orgId: user.orgId, farmId: id, userId: user.id });
+                            }}
+                            onAddSensor={async (input) => {
+                                if (!id || !user?.orgId) return;
+                                await addSensorNode({ ...input, orgId: user.orgId, farmId: id });
+                            }}
+                            onDeactivateSensor={deactivateSensorNode}
+                        />
                     </TabsContent>
                     <TabsContent value="history" className="animate-in fade-in duration-700 m-0">
                         <HistoryTab history={farmHistory} />
@@ -134,7 +200,7 @@ export default function FarmDetails() {
 
 // --- Sub-components ---
 
-function OverviewTab({ farm, history, stock }: { farm: Farm; history: any[]; stock: any[] }) {
+function OverviewTab({ farm, history, stock, sensors }: { farm: Farm; history: any[]; stock: any[]; sensors: any[] }) {
     const activeCycle = history.find(h => h.status === 'active');
     const ageDays = activeCycle ? differenceInDays(new Date(), new Date(activeCycle.start_date)) : 0;
     
@@ -184,14 +250,14 @@ function OverviewTab({ farm, history, stock }: { farm: Farm; history: any[]; sto
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         {[
-                            { label: 'Temperature', value: '28.4°C', status: 'optimal', icon: 'TemperatureIcon' },
-                            { label: 'Humidity', value: '72%', status: 'optimal', icon: 'ActivityIcon' },
-                            { label: 'Ammonia Level', value: '12 ppm', status: 'warning', icon: 'AlertCircleIcon' },
-                            { label: 'Water Pressure', value: '2.4 L/m', status: 'optimal', icon: 'ArrowDown01Icon' }
+                            { label: 'Temperature', value: `${getEnvironmentReading(sensors, 'temperature')?.toFixed(1) ?? '--'}°C`, status: getEnvironmentState(sensors, 'temperature'), icon: 'TemperatureIcon' },
+                            { label: 'Humidity', value: `${getEnvironmentReading(sensors, 'humidity')?.toFixed(1) ?? '--'}%`, status: getEnvironmentState(sensors, 'humidity'), icon: 'WaterDropIcon' },
+                            { label: 'Ammonia Level', value: `${getEnvironmentReading(sensors, 'ammonia')?.toFixed(1) ?? '--'} ppm`, status: getEnvironmentState(sensors, 'ammonia'), icon: 'AlertCircleIcon' },
+                            { label: 'Active Nodes', value: `${sensors.filter((sensor) => sensor.isActive !== false).length}`, status: 'optimal', icon: 'SensorIcon' }
                         ].map((monitor, i) => (
                             <div key={i} className="flex flex-col items-center text-center group/item">
                                 <div className={cn(
-                                    "w-14 h-14 rounded-xl flex items-center justify-center mb-4 border transition-[width] transition-[height] duration-300",
+                                    "w-14 h-14 rounded-xl flex items-center justify-center mb-4 border transition-all duration-300",
                                     monitor.status === 'optimal'
                                         ? "bg-muted border-border text-primary group-hover/item:border-primary/40"
                                         : "bg-danger/5 border-danger/20 text-danger group-hover/item:border-danger/40"
@@ -215,7 +281,7 @@ function OverviewTab({ farm, history, stock }: { farm: Farm; history: any[]; sto
                     </h3>
                     <div className="space-y-4">
                         {farm.status === 'active' ? (
-                            <div className="flex gap-4 p-4 rounded-xl bg-danger/5 border border-border border-l-4 border-danger hover:bg-danger/10 transition-colors">
+                            <div className="flex gap-4 p-4 rounded-xl bg-danger/5 border border-danger/20 border-l-4 hover:bg-danger/10 transition-colors">
                                 <Icon name="Alert01Icon" size={20} className="text-danger shrink-0 mt-0.5 animate-pulse" />
                                 <div>
                                     <p className="text-micro font-bold text-danger uppercase tracking-wider">Health Alert</p>
@@ -257,6 +323,101 @@ function OverviewTab({ farm, history, stock }: { farm: Farm; history: any[]; sto
     );
 }
 
+function EnvironmentTab({
+    farm,
+    sensors,
+    thresholds,
+    history,
+    period,
+    isSaving,
+    onPeriodChange,
+    onToggleEnabled,
+    onSaveThreshold,
+    onAddSensor,
+    onDeactivateSensor,
+}: {
+    farm: Farm;
+    sensors: any[];
+    thresholds: any[];
+    history: any[];
+    period: '24h' | '7d' | '30d';
+    isSaving: boolean;
+    onPeriodChange: (period: '24h' | '7d' | '30d') => void;
+    onToggleEnabled: (enabled: boolean) => Promise<void>;
+    onSaveThreshold: (input: { metricType: 'temperature' | 'humidity' | 'ammonia'; minValue?: number | null; maxValue?: number | null }) => Promise<void>;
+    onAddSensor: (input: { metricType: 'temperature' | 'humidity' | 'ammonia'; locationTag: string; deviceModel?: string | null }) => Promise<void>;
+    onDeactivateSensor: (nodeId: string) => Promise<void>;
+}) {
+    const activeSensors = sensors.filter((sensor) => sensor.isActive !== false);
+
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MetricCard
+                    title="Average Temperature"
+                    value={`${getEnvironmentReading(sensors, 'temperature')?.toFixed(1) ?? '--'}°C`}
+                    subtitle="Across active farm nodes"
+                    icon="TemperatureIcon"
+                    iconColor="var(--warning)"
+                />
+                <MetricCard
+                    title="Average Humidity"
+                    value={`${getEnvironmentReading(sensors, 'humidity')?.toFixed(1) ?? '--'}%`}
+                    subtitle="Across active farm nodes"
+                    icon="WaterDropIcon"
+                    iconColor="var(--info)"
+                />
+                <MetricCard
+                    title="Average Ammonia"
+                    value={`${getEnvironmentReading(sensors, 'ammonia')?.toFixed(1) ?? '--'} ppm`}
+                    subtitle="Across active farm nodes"
+                    icon="AlertCircleIcon"
+                    iconColor="var(--danger)"
+                />
+            </div>
+
+            <SensorHistoryChart data={history} period={period} onPeriodChange={onPeriodChange} />
+
+            <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.7fr] gap-8">
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {activeSensors.length === 0 ? (
+                            <div className="md:col-span-2 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+                                No active sensors registered for this farm yet.
+                            </div>
+                        ) : (
+                            activeSensors.map((sensor) => <SensorCard key={sensor.id} sensor={sensor} />)
+                        )}
+                    </div>
+                </div>
+                <FarmSensorSettings
+                    isEnabled={farm.sensorsEnabled ?? false}
+                    sensors={sensors}
+                    thresholds={thresholds}
+                    isSaving={isSaving}
+                    onToggleEnabled={onToggleEnabled}
+                    onSaveThreshold={onSaveThreshold}
+                    onAddSensor={onAddSensor}
+                    onDeactivateSensor={onDeactivateSensor}
+                />
+            </div>
+        </div>
+    );
+}
+
+function getEnvironmentReading(sensors: any[], type: 'temperature' | 'humidity' | 'ammonia') {
+    const readings = sensors.filter((sensor) => sensor.type === type && sensor.reading != null && sensor.isActive !== false);
+    if (readings.length === 0) return null;
+    return readings.reduce((sum, sensor) => sum + sensor.reading, 0) / readings.length;
+}
+
+function getEnvironmentState(sensors: any[], type: 'temperature' | 'humidity' | 'ammonia') {
+    const readings = sensors.filter((sensor) => sensor.type === type && sensor.isActive !== false);
+    if (readings.some((sensor) => sensor.status === 'alert')) return 'warning';
+    if (readings.some((sensor) => sensor.status === 'offline')) return 'warning';
+    return 'optimal';
+}
+
 function HistoryTab({ history }: { history: any[] }) {
     const [currentPage, setCurrentPage] = React.useState(1);
     const itemsPerPage = 10;
@@ -288,7 +449,7 @@ function HistoryTab({ history }: { history: any[] }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-1">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Production History</h3>
-                    <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase">
+                    <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase">
                         {completedHistory.length} TOTAL
                     </span>
                 </div>
@@ -349,9 +510,9 @@ function PersonnelTab({ personnel }: { personnel: any[] }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {personnel.map((p, i) => (
-                <div key={i} className="bg-card border border-border p-6 rounded-xl hover:border-primary/40 transition-colors transition-shadow transition-[width] flex items-center gap-5 shadow-sm overflow-hidden relative group">
+                <div key={i} className="bg-card border border-border p-6 rounded-xl hover:border-primary/40 transition-all flex items-center gap-5 shadow-sm overflow-hidden relative group">
                     <div className={cn(
-                        "w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center font-bold transition-colors transition-[width] transition-[height] duration-300",
+                        "w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center font-bold transition-all duration-300",
                         "text-primary group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary"
                     )}>
                         {p.profiles.first_name?.[0]}{p.profiles.last_name?.[0]}
@@ -366,8 +527,8 @@ function PersonnelTab({ personnel }: { personnel: any[] }) {
                     </div>
                 </div>
             ))}
-            <button className="bg-muted/10 border-2 border-dashed border-border p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-warning/10 hover:border-warning transition-colors transition-shadow transition-[width] group shadow-inner">
-                <div className="w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/40 transition-colors transition-[width] transition-[height]">
+            <button className="bg-muted/10 border-2 border-dashed border-border p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-warning/10 hover:border-warning transition-all group shadow-inner">
+                <div className="w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/40 transition-all">
                     <Icon name="PlusSignIcon" size={24} />
                 </div>
                 <span className="text-micro font-bold text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">Assign Team Member</span>

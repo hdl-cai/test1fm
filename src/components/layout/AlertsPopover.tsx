@@ -71,7 +71,7 @@ export function AlertsPopover() {
                     )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[380px] p-0 mr-4" align="end">
+            <PopoverContent className="w-95 p-0 mr-4" align="end">
                 <div className="flex items-center justify-between p-4 border-b border-border/50">
                     <div className="flex items-center gap-2">
                         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">System Alerts</h3>

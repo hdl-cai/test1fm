@@ -10,3 +10,5 @@ export { default as KPIGrid } from './KPIGrid';
 export { default as ProductionCharts } from './ProductionCharts';
 export { default as TopGrowers } from './TopGrowers';
 export { default as GrowerStats } from './GrowerStats';
+export { GrowerComparisonChart } from './GrowerComparisonChart';
+export { AnalyticsEmptyState } from './AnalyticsEmptyState';

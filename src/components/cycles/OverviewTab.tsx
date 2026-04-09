@@ -80,7 +80,7 @@ export function OverviewTab({ cycle, farm, grower }: OverviewTabProps) {
                     <div className="space-y-6">
                         <div className="w-full h-3 bg-muted/40 rounded-full overflow-hidden border border-border/50 shadow-inner p-[1px]">
                             <div
-                                className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-colors transition-shadow transition-[width] transition-[height] duration-1000 shadow-[2px_0_10px_rgba(16,185,129,0.3)]"
+                                className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-[color,box-shadow,width,height] duration-1000 shadow-[2px_0_10px_rgba(16,185,129,0.3)]"
                                 style={{ width: `${progress}%` }}
                             />
                         </div>

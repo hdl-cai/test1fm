@@ -251,7 +251,7 @@ export function NewOrderSheet({ isOpen, onClose }: NewOrderSheetProps) {
                 </div>
 
                 {/* Items in Drawer */}
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="space-y-3 max-h-75 overflow-y-auto pr-1 custom-scrollbar">
                   {orderItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-12 gap-3 items-center group">
                       <div className="col-span-6">

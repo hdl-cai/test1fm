@@ -32,8 +32,9 @@ import { ReconciliationTab } from '@/components/cycles/ReconciliationTab';
 import { FinancialsTab } from '@/components/cycles/FinancialsTab';
 import { DOCLoadingSheet } from '@/components/sheets/DOCLoadingSheet';
 import { DeliveryLogSheet } from '@/components/sheets/DeliveryLogSheet';
+import { FeedPhaseTracker } from '@/components/inventory/FeedPhaseTracker';
 
-type TabType = 'overview' | 'health' | 'harvest' | 'sales' | 'dailylogs' | 'weightsamples' | 'financials' | 'reconciliation';
+type TabType = 'overview' | 'health' | 'harvest' | 'sales' | 'dailylogs' | 'weightsamples' | 'financials' | 'reconciliation' | 'supplies';
 
 export default function ProductionCycleDetails() {
   const { id } = useParams<{ id: string }>();
@@ -129,11 +130,12 @@ export default function ProductionCycleDetails() {
 
   const tabs: { key: TabType; label: string; icon: IconName }[] = [
     { key: 'overview', label: 'Overview', icon: 'DashboardSquareIcon' },
-    { key: 'health', label: 'Health Records', icon: 'MedicalFileIcon' },
+    { key: 'health', label: 'Health & Vaccination', icon: 'MedicalFileIcon' },
     { key: 'harvest', label: 'Harvest', icon: 'FarmIcon' },
     { key: 'sales', label: 'Sales', icon: 'Money01Icon' },
     { key: 'dailylogs', label: 'Daily Logs', icon: 'CalendarIcon' },
     { key: 'weightsamples', label: 'Weight Samples', icon: 'Analytics01Icon' },
+    { key: 'supplies', label: 'Supplies', icon: 'PackageIcon' },
     { key: 'financials', label: 'Financials', icon: 'MoneyIcon' },
     ...(harvestRecords.length > 0 ? [{ key: 'reconciliation' as TabType, label: 'Reconciliation', icon: 'CheckCircleIcon' as IconName }] : []),
   ];
@@ -146,7 +148,7 @@ export default function ProductionCycleDetails() {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/production-cycles')}
-          className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors transition-shadow transition-[width] transition-[height] shadow-sm group"
+          className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-[color,box-shadow,width,height] shadow-sm group"
         >
           <Icon name="ArrowLeft01Icon" size={20} className="group-hover:-translate-x-1 transition-transform" />
         </Button>
@@ -201,7 +203,16 @@ export default function ProductionCycleDetails() {
             <OverviewTab cycle={cycle} farm={farm} grower={grower} />
           </TabsContent>
           <TabsContent value="health" className="mt-0">
-            <HealthTab healthRecords={healthRecords} vaccinationSchedules={vaccinationSchedules} />
+            <HealthTab
+              healthRecords={healthRecords}
+              vaccinationSchedules={vaccinationSchedules}
+              cycleId={id!}
+              orgId={orgId || ''}
+              userId={userId}
+              userRole={userRole}
+              cycleStartDate={cycle.startDate}
+              onRefetch={refetch}
+            />
           </TabsContent>
           <TabsContent value="harvest" className="mt-0">
             <HarvestTab logs={harvestRecords} cycleId={id!} orgId={orgId || ''} userId={userId} userRole={userRole} onHarvestSaved={refetch} />
@@ -214,6 +225,9 @@ export default function ProductionCycleDetails() {
           </TabsContent>
           <TabsContent value="weightsamples" className="mt-0">
             <WeightSamplesTab logs={dailyLogs} />
+          </TabsContent>
+          <TabsContent value="supplies" className="mt-0">
+            <FeedPhaseTracker />
           </TabsContent>
           <TabsContent value="financials" className="mt-0">
             <FinancialsTab

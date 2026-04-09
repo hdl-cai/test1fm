@@ -144,6 +144,9 @@ export type Database = {
           request_date: string
           requester_type: string
           status: string
+          review_note: string | null
+          reviewed_at: string | null
+          deducted_in_payroll_id: string | null
         }
         Insert: {
           amount: number
@@ -159,6 +162,9 @@ export type Database = {
           request_date?: string
           requester_type: string
           status?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          deducted_in_payroll_id?: string | null
         }
         Update: {
           amount?: number
@@ -174,6 +180,9 @@ export type Database = {
           request_date?: string
           requester_type?: string
           status?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          deducted_in_payroll_id?: string | null
         }
         Relationships: [
           {
@@ -847,6 +856,7 @@ export type Database = {
           org_id: string
           owner_id: string | null
           region: string | null
+          sensors_enabled: boolean | null
           status: string
         }
         Insert: {
@@ -864,6 +874,7 @@ export type Database = {
           org_id: string
           owner_id?: string | null
           region?: string | null
+          sensors_enabled?: boolean | null
           status?: string
         }
         Update: {
@@ -881,6 +892,7 @@ export type Database = {
           org_id?: string
           owner_id?: string | null
           region?: string | null
+          sensors_enabled?: boolean | null
           status?: string
         }
         Relationships: [
@@ -1014,6 +1026,8 @@ export type Database = {
           base_points: number | null
           bpi_bracket_id: string | null
           bpi_score: number | null
+          calculated_at: string | null
+          career_tier: string | null
           consistency_bonus_points: number | null
           created_at: string
           cycle_completion_points: number | null
@@ -1030,6 +1044,7 @@ export type Database = {
           mortality_bonus_points: number | null
           org_id: string
           performance_year: number
+          rank_at_close: number | null
           total_birds_harvested: number | null
           total_birds_placed: number | null
           total_feed_consumed_kg: number | null
@@ -1041,6 +1056,8 @@ export type Database = {
           base_points?: number | null
           bpi_bracket_id?: string | null
           bpi_score?: number | null
+          calculated_at?: string | null
+          career_tier?: string | null
           consistency_bonus_points?: number | null
           created_at?: string
           cycle_completion_points?: number | null
@@ -1057,6 +1074,7 @@ export type Database = {
           mortality_bonus_points?: number | null
           org_id: string
           performance_year: number
+          rank_at_close?: number | null
           total_birds_harvested?: number | null
           total_birds_placed?: number | null
           total_feed_consumed_kg?: number | null
@@ -1068,6 +1086,8 @@ export type Database = {
           base_points?: number | null
           bpi_bracket_id?: string | null
           bpi_score?: number | null
+          calculated_at?: string | null
+          career_tier?: string | null
           consistency_bonus_points?: number | null
           created_at?: string
           cycle_completion_points?: number | null
@@ -1084,6 +1104,7 @@ export type Database = {
           mortality_bonus_points?: number | null
           org_id?: string
           performance_year?: number
+          rank_at_close?: number | null
           total_birds_harvested?: number | null
           total_birds_placed?: number | null
           total_feed_consumed_kg?: number | null
@@ -1417,14 +1438,18 @@ export type Database = {
       }
       health_records: {
         Row: {
+          birds_affected: number | null
           created_at: string
           cycle_id: string
           deleted_at: string | null
+          dosage: string | null
           gahp_standard_ref: string | null
           id: string
           is_gahp_compliant: boolean
+          medication_name: string | null
           notes: string | null
           org_id: string
+          outcome: string | null
           photos: string[] | null
           record_date: string
           record_type: string
@@ -1433,14 +1458,18 @@ export type Database = {
           veterinarian_id: string | null
         }
         Insert: {
+          birds_affected?: number | null
           created_at?: string
           cycle_id: string
           deleted_at?: string | null
+          dosage?: string | null
           gahp_standard_ref?: string | null
           id?: string
           is_gahp_compliant?: boolean
+          medication_name?: string | null
           notes?: string | null
           org_id: string
+          outcome?: string | null
           photos?: string[] | null
           record_date: string
           record_type: string
@@ -1449,14 +1478,18 @@ export type Database = {
           veterinarian_id?: string | null
         }
         Update: {
+          birds_affected?: number | null
           created_at?: string
           cycle_id?: string
           deleted_at?: string | null
+          dosage?: string | null
           gahp_standard_ref?: string | null
           id?: string
           is_gahp_compliant?: boolean
+          medication_name?: string | null
           notes?: string | null
           org_id?: string
+          outcome?: string | null
           photos?: string[] | null
           record_date?: string
           record_type?: string
@@ -1636,6 +1669,7 @@ export type Database = {
           status: string
           supplier_id: string | null
           total_amount: number | null
+          order_date: string | null
         }
         Insert: {
           created_at?: string
@@ -1649,6 +1683,7 @@ export type Database = {
           status?: string
           supplier_id?: string | null
           total_amount?: number | null
+          order_date?: string | null
         }
         Update: {
           created_at?: string
@@ -1662,6 +1697,7 @@ export type Database = {
           status?: string
           supplier_id?: string | null
           total_amount?: number | null
+          order_date?: string | null
         }
         Relationships: [
           {
@@ -1818,6 +1854,7 @@ export type Database = {
           last_verified_at: string | null
           org_id: string
           price_date: string
+          price_per_kg_carcass: number | null
           region: string
           source: string | null
           srp_price: number | null
@@ -1831,6 +1868,7 @@ export type Database = {
           last_verified_at?: string | null
           org_id: string
           price_date: string
+          price_per_kg_carcass?: number | null
           region: string
           source?: string | null
           srp_price?: number | null
@@ -1844,6 +1882,7 @@ export type Database = {
           last_verified_at?: string | null
           org_id?: string
           price_date?: string
+          price_per_kg_carcass?: number | null
           region?: string
           source?: string | null
           srp_price?: number | null
@@ -1938,40 +1977,64 @@ export type Database = {
       }
       notifications: {
         Row: {
-          created_at: string
           id: string
-          message: string
           org_id: string
-          read_status: boolean
+          recipient_id: string
+          title: string
+          message: string
+          type: string
+          event_type: string | null
+          urgency: 'critical' | 'warning' | 'info' | null
+          link: string | null
+          is_read: boolean
+          is_archived: boolean
+          farm_id: string | null
+          cycle_id: string | null
           reference_id: string | null
           reference_type: string | null
-          title: string
-          type: string
-          user_id: string
+          read_at: string | null
+          expires_at: string | null
+          created_at: string
         }
         Insert: {
-          created_at?: string
           id?: string
-          message: string
           org_id: string
-          read_status?: boolean
+          recipient_id: string
+          title: string
+          message: string
+          type: string
+          event_type?: string | null
+          urgency?: 'critical' | 'warning' | 'info' | null
+          link?: string | null
+          is_read?: boolean
+          is_archived?: boolean
+          farm_id?: string | null
+          cycle_id?: string | null
           reference_id?: string | null
           reference_type?: string | null
-          title: string
-          type: string
-          user_id: string
+          read_at?: string | null
+          expires_at?: string | null
+          created_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
-          message?: string
           org_id?: string
-          read_status?: boolean
+          recipient_id?: string
+          title?: string
+          message?: string
+          type?: string
+          event_type?: string | null
+          urgency?: 'critical' | 'warning' | 'info' | null
+          link?: string | null
+          is_read?: boolean
+          is_archived?: boolean
+          farm_id?: string | null
+          cycle_id?: string | null
           reference_id?: string | null
           reference_type?: string | null
-          title?: string
-          type?: string
-          user_id?: string
+          read_at?: string | null
+          expires_at?: string | null
+          created_at?: string
         }
         Relationships: [
           {
@@ -1982,7 +2045,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "notifications_user_id_fkey"
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          device_label: string | null
+          created_at: string
+          last_used_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          device_label?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          device_label?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2089,11 +2193,61 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          daily_report_reminder_times: string[]
+          disabled_event_types: string[]
+          email_enabled: boolean
+          id: string
+          org_id: string
+          push_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          daily_report_reminder_times?: string[]
+          disabled_event_types?: string[]
+          email_enabled?: boolean
+          id?: string
+          org_id: string
+          push_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          daily_report_reminder_times?: string[]
+          disabled_event_types?: string[]
+          email_enabled?: boolean
+          id?: string
+          org_id?: string
+          push_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_settings: {
         Row: {
+          base_incentive_per_bird: number | null
           currency: string
           default_fcr_target: number
           default_harvest_age_days: number
+          default_target_mortality_pct: number | null
           heat_stress_critical_temp_c: number
           heat_stress_warning_temp_c: number
           low_stock_alert_days: number
@@ -2104,9 +2258,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_incentive_per_bird?: number | null
           currency?: string
           default_fcr_target?: number
           default_harvest_age_days?: number
+          default_target_mortality_pct?: number | null
           heat_stress_critical_temp_c?: number
           heat_stress_warning_temp_c?: number
           low_stock_alert_days?: number
@@ -2117,9 +2273,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_incentive_per_bird?: number | null
           currency?: string
           default_fcr_target?: number
           default_harvest_age_days?: number
+          default_target_mortality_pct?: number | null
           heat_stress_critical_temp_c?: number
           heat_stress_warning_temp_c?: number
           low_stock_alert_days?: number
@@ -2743,6 +2901,7 @@ export type Database = {
           device_model: string | null
           farm_id: string
           id: string
+          is_active: boolean | null
           installed_at: string | null
           last_seen_at: string | null
           location_tag: string | null
@@ -2757,6 +2916,7 @@ export type Database = {
           device_model?: string | null
           farm_id: string
           id?: string
+          is_active?: boolean | null
           installed_at?: string | null
           last_seen_at?: string | null
           location_tag?: string | null
@@ -2771,6 +2931,7 @@ export type Database = {
           device_model?: string | null
           farm_id?: string
           id?: string
+          is_active?: boolean | null
           installed_at?: string | null
           last_seen_at?: string | null
           location_tag?: string | null
@@ -3046,6 +3207,9 @@ export type Database = {
           id: string
           name: string
           org_id: string
+          supply_categories: string[] | null
+          is_archived: boolean
+          notes: string | null
         }
         Insert: {
           address?: string | null
@@ -3057,6 +3221,9 @@ export type Database = {
           id?: string
           name: string
           org_id: string
+          supply_categories?: string[] | null
+          is_archived?: boolean
+          notes?: string | null
         }
         Update: {
           address?: string | null
@@ -3068,6 +3235,9 @@ export type Database = {
           id?: string
           name?: string
           org_id?: string
+          supply_categories?: string[] | null
+          is_archived?: boolean
+          notes?: string | null
         }
         Relationships: [
           {
@@ -3137,10 +3307,12 @@ export type Database = {
           id: string
           notes: string | null
           org_id: string
+          reschedule_note: string | null
           scheduled_date: string
           status: string
           target_age_days: number
           template_item_id: string | null
+          vaccine_brand_batch: string | null
           vaccine_name: string
           verified_by_tech_id: string | null
         }
@@ -3153,10 +3325,12 @@ export type Database = {
           id?: string
           notes?: string | null
           org_id: string
+          reschedule_note?: string | null
           scheduled_date: string
           status?: string
           target_age_days: number
           template_item_id?: string | null
+          vaccine_brand_batch?: string | null
           vaccine_name: string
           verified_by_tech_id?: string | null
         }
@@ -3169,10 +3343,12 @@ export type Database = {
           id?: string
           notes?: string | null
           org_id?: string
+          reschedule_note?: string | null
           scheduled_date?: string
           status?: string
           target_age_days?: number
           template_item_id?: string | null
+          vaccine_brand_batch?: string | null
           vaccine_name?: string
           verified_by_tech_id?: string | null
         }
@@ -3340,12 +3516,428 @@ export type Database = {
           },
         ]
       }
+      // ── Phase 2B additions ──────────────────────────────────────────────────
+      employee_payroll_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          org_id: string
+          monthly_basic_salary: number
+          pay_schedule: string
+          sss_bracket_id: string | null
+          philhealth_bracket_id: string | null
+          pagibig_rate: string | null
+          rice_allowance: number | null
+          transport_allowance: number | null
+          other_allowances: number | null
+          other_deductions: number | null
+          effective_date: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          org_id: string
+          monthly_basic_salary: number
+          pay_schedule?: string
+          sss_bracket_id?: string | null
+          philhealth_bracket_id?: string | null
+          pagibig_rate?: string | null
+          rice_allowance?: number | null
+          transport_allowance?: number | null
+          other_allowances?: number | null
+          other_deductions?: number | null
+          effective_date?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          org_id?: string
+          monthly_basic_salary?: number
+          pay_schedule?: string
+          sss_bracket_id?: string | null
+          philhealth_bracket_id?: string | null
+          pagibig_rate?: string | null
+          rice_allowance?: number | null
+          transport_allowance?: number | null
+          other_allowances?: number | null
+          other_deductions?: number | null
+          effective_date?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_payroll_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_payroll_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_records: {
+        Row: {
+          id: string
+          user_id: string
+          org_id: string
+          pay_period_start: string
+          pay_period_end: string
+          gross_pay: number
+          sss_employee: number | null
+          sss_employer: number | null
+          philhealth_employee: number | null
+          philhealth_employer: number | null
+          pagibig_employee: number | null
+          pagibig_employer: number | null
+          cash_advance_deduction: number | null
+          other_deductions: number | null
+          net_pay: number
+          status: string
+          released_by: string | null
+          released_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          org_id: string
+          pay_period_start: string
+          pay_period_end: string
+          gross_pay: number
+          sss_employee?: number | null
+          sss_employer?: number | null
+          philhealth_employee?: number | null
+          philhealth_employer?: number | null
+          pagibig_employee?: number | null
+          pagibig_employer?: number | null
+          cash_advance_deduction?: number | null
+          other_deductions?: number | null
+          net_pay: number
+          status?: string
+          released_by?: string | null
+          released_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          org_id?: string
+          pay_period_start?: string
+          pay_period_end?: string
+          gross_pay?: number
+          sss_employee?: number | null
+          sss_employer?: number | null
+          philhealth_employee?: number | null
+          philhealth_employer?: number | null
+          pagibig_employee?: number | null
+          pagibig_employer?: number | null
+          cash_advance_deduction?: number | null
+          other_deductions?: number | null
+          net_pay?: number
+          status?: string
+          released_by?: string | null
+          released_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sss_contribution_table: {
+        Row: {
+          id: string
+          salary_bracket_min: number
+          salary_bracket_max: number | null
+          employee_share: number
+          employer_share: number
+          effective_date: string
+          is_current: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          salary_bracket_min: number
+          salary_bracket_max?: number | null
+          employee_share: number
+          employer_share: number
+          effective_date: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          salary_bracket_min?: number
+          salary_bracket_max?: number | null
+          employee_share?: number
+          employer_share?: number
+          effective_date?: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      philhealth_contribution_table: {
+        Row: {
+          id: string
+          premium_rate_pct: number
+          income_floor: number
+          income_ceiling: number
+          effective_date: string
+          is_current: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          premium_rate_pct: number
+          income_floor: number
+          income_ceiling: number
+          effective_date: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          premium_rate_pct?: number
+          income_floor?: number
+          income_ceiling?: number
+          effective_date?: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      pagibig_contribution_table: {
+        Row: {
+          id: string
+          salary_threshold: number
+          rate_below_pct: number
+          rate_above_pct: number
+          max_employee_share: number
+          max_employer_share: number
+          effective_date: string
+          is_current: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          salary_threshold: number
+          rate_below_pct: number
+          rate_above_pct: number
+          max_employee_share: number
+          max_employer_share: number
+          effective_date: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          salary_threshold?: number
+          rate_below_pct?: number
+          rate_above_pct?: number
+          max_employee_share?: number
+          max_employer_share?: number
+          effective_date?: string
+          is_current?: boolean | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      weight_samples: {
+        Row: {
+          id: string
+          cycle_id: string
+          org_id: string
+          farm_id: string
+          sample_date: string
+          sample_weight_g: number
+          bird_count: number
+          recorded_by: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cycle_id: string
+          org_id: string
+          farm_id: string
+          sample_date: string
+          sample_weight_g: number
+          bird_count?: number
+          recorded_by: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cycle_id?: string
+          org_id?: string
+          farm_id?: string
+          sample_date?: string
+          sample_weight_g?: number
+          bird_count?: number
+          recorded_by?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weight_samples_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "production_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weight_samples_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weight_samples_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      projected_feed_days: {
+        Args: {
+          p_org_id: string
+          p_farm_id: string
+        }
+        Returns: number | null
+      }
+      fn_fcr_trend: {
+        Args: { p_org_id: string }
+        Returns: { cycle_label: string; fcr: number; end_date: string }[]
+      }
+      fn_mortality_trend: {
+        Args: { p_org_id: string }
+        Returns: { cycle_label: string; mortality_pct: number; end_date: string }[]
+      }
+      fn_adg_trend: {
+        Args: { p_org_id: string }
+        Returns: { cycle_label: string; adg_g: number; end_date: string }[]
+      }
+      fn_cycle_duration_distribution: {
+        Args: { p_org_id: string }
+        Returns: { bucket: string; count: number }[]
+      }
+      fn_revenue_vs_expenses_monthly: {
+        Args: { p_org_id: string }
+        Returns: { month: string; revenue: number; expenses: number }[]
+      }
+      fn_net_profit_per_cycle: {
+        Args: { p_org_id: string }
+        Returns: { cycle_label: string; revenue: number; expenses: number; net_profit: number; end_date: string }[]
+      }
+      fn_cost_distribution: {
+        Args: { p_org_id: string; p_months?: number }
+        Returns: { category: string; total_amount: number; pct: number }[]
+      }
+      fn_cost_per_kg_trend: {
+        Args: { p_org_id: string }
+        Returns: { cycle_label: string; cost_per_kg: number; end_date: string }[]
+      }
+      fn_seasonality_mortality: {
+        Args: { p_org_id: string }
+        Returns: { month_num: number; month_name: string; avg_mortality_pct: number; cycle_count: number }[]
+      }
+      fn_input_performance: {
+        Args: { p_org_id: string }
+        Returns: { input_type: string; input_value: string; avg_harvest_weight_kg: number; avg_fcr: number; cycle_count: number }[]
+      }
+      run_payroll: {
+        Args: {
+          p_org_id: string
+          p_pay_period_start: string
+          p_pay_period_end: string
+        }
+        Returns: {
+          id: string
+          user_id: string
+          org_id: string
+          pay_period_start: string
+          pay_period_end: string
+          gross_pay: number
+          sss_employee: number
+          sss_employer: number
+          philhealth_employee: number
+          philhealth_employer: number
+          pagibig_employee: number
+          pagibig_employer: number
+          cash_advance_deduction: number
+          other_deductions: number
+          net_pay: number
+          status: string
+          released_by: string | null
+          released_at: string | null
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      release_payroll: {
+        Args: {
+          p_payroll_record_id: string
+          p_admin_id: string
+        }
+        Returns: {
+          id: string
+          user_id: string
+          org_id: string
+          pay_period_start: string
+          pay_period_end: string
+          gross_pay: number
+          net_pay: number
+          status: string
+          released_by: string | null
+          released_at: string | null
+          created_at: string
+          updated_at: string
+        }
+      }
     }
     Enums: {
       [_ in never]: never

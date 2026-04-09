@@ -14,41 +14,15 @@ import { Input } from '@/components/ui/input';
 import { PageTitle } from '@/components/ui/page-title';
 import { TableHeader } from '@/components/ui/table-header';
 import { MetricCard, DataTablePagination, FarmFilter, StatusBadge } from '@/components/shared';
-
-import { MetricChart } from '@/components/shared/MetricChart';
+import { SensorHistoryChart } from '@/components/sensors/SensorHistoryChart';
 import { useSensorsStore } from '@/stores/useSensorsStore';
 import { useFarmsStore } from '@/stores/useFarmsStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import type { Sensor, Farm } from '@/types';
 
-type TimePeriod = '24h' | '7d';
-
-interface ChartDataPoint {
-  name: string;
-  temperature: number;
-  humidity: number;
-  ammonia: number;
-  [key: string]: string | number;
-}
-
-function generateMockChartData(period: TimePeriod): ChartDataPoint[] {
-  const data: ChartDataPoint[] = [];
-  const points = period === '24h' ? 24 : 7;
-  const startHour = period === '24h' ? 0 : 12;
-
-  for (let i = 0; i < points; i++) {
-    const hour = (startHour + i) % 24;
-    data.push({
-      name: period === '24h' ? `${hour}:00` : `Day ${i + 1}`,
-      temperature: 24 + Math.random() * 4,
-      humidity: 60 + Math.random() * 20,
-      ammonia: 10 + Math.random() * 15,
-    });
-  }
-
-  return data;
-}
+type TimePeriod = '24h' | '7d' | '30d';
 
 function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
 
@@ -133,7 +107,7 @@ function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
             return (
               <tr
                 key={sensor.id}
-                className="hover:bg-row-hover transition-colors transition-[width] group bg-background"
+                className="hover:bg-row-hover group bg-background"
               >
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -146,7 +120,7 @@ function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
                       <Icon name={styles.icon as any} size={18} />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-foreground block font-data">{sensor.id}</span>
+                      <span className="text-xs font-bold text-foreground block font-data">{sensor.nodeIdCode ?? sensor.id}</span>
                       <span className="text-micro font-semibold text-muted-foreground uppercase tracking-widest leading-none mt-1">Sensor Node</span>
                     </div>
                   </div>
@@ -170,7 +144,7 @@ function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
                         <span className="text-micro text-muted-foreground uppercase tracking-widest font-bold">{sensor.unit}</span>
                       </div>
                       <div className="w-10 h-1 bg-muted/30 rounded-full mt-2 overflow-hidden">
-                        <div className={cn("h-full transition-[width] transition-[height] duration-1000", styles.bg.replace('/10', '/80'))} style={{ width: `${Math.min((sensor.reading / (sensor.type === 'temperature' ? 40 : 100)) * 100, 100)}%` }} />
+                        <div className={cn("h-full", styles.bg.replace('/10', '/80'))} style={{ width: `${Math.min((sensor.reading / (sensor.type === 'temperature' ? 40 : 100)) * 100, 100)}%` }} />
                       </div>
                     </div>
                   ) : (
@@ -178,10 +152,10 @@ function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
                   )}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-col items-center gap-2 min-w-[80px]">
-                    <div className="w-16 h-1.5 bg-muted/60 rounded-full overflow-hidden border border-border/20 p-[1px]">
+                  <div className="flex flex-col items-center gap-2 min-w-20">
+                    <div className="w-16 h-1.5 bg-muted/60 rounded-full overflow-hidden border border-border/20 p-px">
                       <div
-                        className={cn('h-full rounded-full transition-[height] duration-1000', battery.bg)}
+                        className={cn('h-full rounded-full', battery.bg)}
                         style={{ width: `${sensor.battery}%` }}
                       />
                     </div>
@@ -195,10 +169,10 @@ function SensorTable({ sensors, farms }: { sensors: Sensor[]; farms: Farm[] }) {
                 </td>
                 <td className="px-6 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground transition-colors transition-[width] transition-[height] border border-border/40 hover:border-border/60">
+                    <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-foreground border border-border/40 hover:border-border/60">
                       <Icon name="EyeIcon" size={14} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground transition-colors transition-[width] transition-[height] border border-border/40 hover:border-border/60">
+                    <Button variant="ghost" size="icon" className="rounded-lg text-muted-foreground hover:text-foreground border border-border/40 hover:border-border/60">
                       <Icon name="MoreVerticalCircle01Icon" size={14} />
                     </Button>
                   </div>
@@ -223,24 +197,42 @@ export default function Sensors() {
 
   const itemsPerPage = 8;
 
+  const { user } = useAuthStore();
   const sensors = useSensorsStore((state) => state.sensors);
+  const history = useSensorsStore((state) => state.history);
+  const isLoading = useSensorsStore((state) => state.isLoading);
+  const fetchSensors = useSensorsStore((state) => state.fetchSensors);
+  const fetchHistory = useSensorsStore((state) => state.fetchHistory);
   const farms = useFarmsStore((state) => state.farms);
+  const fetchFarms = useFarmsStore((state) => state.fetchFarms);
   const onlineCount = useSensorsStore((state) => state.onlineCount);
   const offlineCount = useSensorsStore((state) => state.offlineCount);
   const alertCount = useSensorsStore((state) => state.alertCount);
   const averageTemperature = useSensorsStore((state) => state.averageTemperature);
 
+  React.useEffect(() => {
+    if (!user?.orgId) return;
+    void fetchSensors(user.orgId);
+    void fetchFarms(user.orgId);
+    const id = setInterval(() => void fetchSensors(user.orgId!), 60_000);
+    return () => clearInterval(id);
+  }, [fetchFarms, fetchSensors, user?.orgId]);
+
+  React.useEffect(() => {
+    if (!user?.orgId) return;
+    const days = timePeriod === '24h' ? 1 : timePeriod === '7d' ? 7 : 30;
+    void fetchHistory(user.orgId, { farmId: selectedFarm ?? undefined, days });
+  }, [fetchHistory, selectedFarm, timePeriod, user?.orgId]);
+
   const filteredSensors = React.useMemo(() => {
     return sensors.filter((sensor) => {
       const matchesFarm = !selectedFarm || sensor.farmId === selectedFarm;
       const matchesSearch =
-        sensor.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (sensor.nodeIdCode ?? sensor.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
         sensor.location.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesFarm && matchesSearch;
     });
   }, [sensors, selectedFarm, searchQuery]);
-
-  const chartData = React.useMemo(() => generateMockChartData(timePeriod), [timePeriod]);
 
   const totalPages = Math.ceil(filteredSensors.length / itemsPerPage);
   const paginatedSensors = React.useMemo(() => {
@@ -319,23 +311,7 @@ export default function Sensors() {
 
       {/* Live Sensor Metrics Chart */}
       <div className="mb-8">
-        <MetricChart
-          title="Live Sensor Metrics"
-          subtitle="Environmental readings from all connected sensors"
-          data={chartData}
-          series={[
-            { key: 'temperature', name: 'Temperature', color: 'hsl(var(--chart-1))', unit: '°C' },
-            { key: 'humidity', name: 'Humidity', color: 'hsl(var(--chart-4))', unit: '%' },
-            { key: 'ammonia', name: 'Ammonia', color: 'hsl(var(--chart-3))', unit: 'ppm' },
-          ]}
-          periods={[
-            { label: '24 Hours', value: '24h' },
-            { label: '7 Days', value: '7d' },
-          ]}
-          activePeriod={timePeriod}
-          onPeriodChange={(period) => setTimePeriod(period as TimePeriod)}
-          height={320}
-        />
+        <SensorHistoryChart data={history} period={timePeriod} onPeriodChange={setTimePeriod} />
       </div>
 
       {/* Sensor Devices Table */}
@@ -345,7 +321,7 @@ export default function Sensors() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1">
           <div className="flex items-center gap-3">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sensors</h3>
-            <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
+            <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase font-data">
               {filteredSensors.length} TOTAL
             </span>
           </div>
@@ -380,6 +356,12 @@ export default function Sensors() {
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm relative">
           <SensorTable sensors={paginatedSensors} farms={farms} />
         </div>
+
+        {isLoading && (
+          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            Refreshing live sensor data...
+          </div>
+        )}
 
         <DataTablePagination
           currentPage={currentPage}

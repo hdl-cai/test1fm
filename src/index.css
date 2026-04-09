@@ -257,7 +257,7 @@
   }
 
   .bg-glass {
-    @apply bg-card/40 backdrop-blur-lg border border-border/30 shadow-sm transition-colors transition-shadow transition-[width] duration-300;
+    @apply bg-card/40 backdrop-blur-lg border border-border/30 shadow-sm transition-[color,box-shadow,width] duration-300;
   }
 
   .bg-glass-hover {

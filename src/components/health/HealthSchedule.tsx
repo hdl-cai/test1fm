@@ -312,7 +312,7 @@ export function HealthSchedule({ selectedCycleId, onCycleChange, onAddRecord }: 
                                                 {step.status}
                                             </span>
                                         </div>
-                                        <div className="bg-muted/5 border border-border/50 rounded-xl p-3 space-y-1.5 min-w-[200px] group-hover:bg-muted/10 transition-colors">
+                                        <div className="bg-muted/5 border border-border/50 rounded-xl p-3 space-y-1.5 min-w-50 group-hover:bg-muted/10 transition-colors">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-micro font-bold text-muted-foreground uppercase opacity-60">Medication</span>
                                                 <span className="text-micro font-bold text-foreground">{step.medication}</span>

@@ -40,6 +40,10 @@ export interface HealthRecordWithVeterinarianRow extends HealthRecordRow {
   veterinarian: Pick<ProfileRow, 'first_name' | 'last_name'> | null;
 }
 
+export interface VaccinationScheduleWithProfile extends VaccinationScheduleRow {
+  verified_by: Pick<ProfileRow, 'first_name' | 'last_name'> | null;
+}
+
 export function isUserRole(role: string): role is UserRole {
   return (USER_ROLES as readonly string[]).includes(role);
 }

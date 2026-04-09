@@ -10,16 +10,22 @@
  * - Daily Flock Summary table
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ApprovalCard, MetricChart, MetricCard, StatusBadge, DataTablePagination } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { PageTitle } from '@/components/ui/page-title';
 import { TableHeader } from '@/components/ui/table-header';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useFarmsStore } from '@/stores/useFarmsStore';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { GlobalSensorSummary } from '@/components/sensors/GlobalSensorSummary';
 import { cn, formatPHP } from '@/lib/utils';
 import { Icon } from '@/hooks/useIcon';
 import { Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { GrowerMobileHome } from '@/pages/mobile/GrowerMobileHome';
+import { TechnicianMobileHome } from '@/pages/mobile/TechnicianMobileHome';
+import { AdminMobileHome } from '@/pages/mobile/AdminMobileHome';
 
 // ============================================================================
 // Mock Data for Dashboard
@@ -57,8 +63,27 @@ function formatNumber(num: number): string {
 
 export function Dashboard() {
   const { user } = useAuthStore();
-  const { stats, chartData, pendingApprovals, flockSummary, isLoading } = useDashboardData();
+  const { farms, fetchFarms } = useFarmsStore();
+  const { stats, chartData, pendingApprovals, flockSummary, latestMarketPrice, isLoading } = useDashboardData();
   const [chartPeriod, setChartPeriod] = useState('30d');
+
+  // Mobile detection: renders role-specific home on viewports < 768 px
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < 768,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (user?.orgId && farms.length === 0) {
+      void fetchFarms(user.orgId);
+    }
+  }, [farms.length, fetchFarms, user?.orgId]);
 
   // Handle approval actions
   const handleApprove = (id: string) => {
@@ -98,10 +123,19 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="animate-spin text-primary" size={32} />
       </div>
     );
+  }
+
+  // Mobile viewports: render role-specific home instead of full desktop dashboard
+  if (isMobile) {
+    const role = user?.role;
+    if (role === 'grower') return <GrowerMobileHome />;
+    if (role === 'technician') return <TechnicianMobileHome />;
+    // admin, owner, and all other roles get the admin mobile home
+    return <AdminMobileHome />;
   }
 
   return (
@@ -170,14 +204,26 @@ export function Dashboard() {
         />
         <MetricCard
           title="Projected Revenue"
-          value={formatPHP(stats.totalBirds * 1.8 * 100)}
-          subtitle="Based on current active cycles"
+          value={formatPHP(stats.totalBirds * 1.8 * (latestMarketPrice?.farmgate || 110))}
+          subtitle={latestMarketPrice ? `Based on ${latestMarketPrice.region} Farmgate Price` : "Based on avg price (₱110/kg)"}
           icon="MoneyIcon"
           iconColor="var(--primary)"
           trend={{
-            value: "8.5%",
+            value: latestMarketPrice ? "Live Data" : "Estimates",
             direction: 'up',
-            label: 'vs last period',
+            label: latestMarketPrice ? `As of ${format(new Date(latestMarketPrice.date), 'MMM dd')}` : 'Manual',
+          }}
+        />
+        <MetricCard
+          title="Market Index"
+          value={`₱${(latestMarketPrice?.farmgate || 0).toFixed(2)}`}
+          subtitle={latestMarketPrice?.region || "Select Region"}
+          icon="AnalyticsIcon"
+          iconColor="var(--info)"
+          trend={{
+            value: latestMarketPrice?.srp ? `₱${latestMarketPrice.srp.toFixed(2)}` : "No SRP",
+            direction: 'up',
+            label: 'Retail Target',
           }}
         />
       </div>
@@ -207,10 +253,12 @@ export function Dashboard() {
             approvals={pendingApprovals}
             onApprove={handleApprove}
             onReject={handleReject}
-            className="h-full max-h-[464px]"
+            className="h-full max-h-116"
           />
         </div>
       </div>
+
+      <GlobalSensorSummary farms={farms} />
 
       {/* Row 2: Daily Flock Summary */}
       <div className="space-y-6">
@@ -230,7 +278,7 @@ export function Dashboard() {
                 placeholder="Search batches..."
                 value={summarySearch}
                 onChange={(e) => setSummarySearch(e.target.value)}
-                className="pl-9 w-64 bg-muted/30 border border-border text-foreground placeholder-muted-foreground/50 focus:border-primary focus:ring-0 text-xs rounded-lg h-9 outline-none transition-colors transition-[width] transition-[height]"
+                className="pl-9 w-64 bg-muted/30 border border-border text-foreground placeholder-muted-foreground/50 focus:border-primary focus:ring-0 text-xs rounded-lg h-9 outline-none"
               />
             </div>
             <div className="flex bg-muted/30 rounded-lg p-1 border border-border">
@@ -260,7 +308,7 @@ export function Dashboard() {
                 {paginatedSummary.map((row) => (
                   <tr
                     key={row.id}
-                    className="hover:bg-row-hover transition-colors transition-[width] group bg-background"
+                    className="hover:bg-row-hover group bg-background"
                   >
                     <td className="px-6 py-4 text-xs text-muted-foreground font-medium">{row.farmName}</td>
                     <td className="px-6 py-4 text-xs font-bold text-foreground uppercase tracking-tight">{row.batchName}</td>

@@ -44,13 +44,13 @@ function CycleCard({ cycle, farm, grower }: { cycle: ProductionCycle; farm: Farm
 
   return (
     <div
-      className="bg-card rounded-xl border border-border hover:border-primary/30 transition-colors transition-[width] p-6 cursor-pointer group relative overflow-hidden"
+      className="bg-card rounded-xl border border-border hover:border-primary/30 transition-[color,width] p-6 cursor-pointer group relative overflow-hidden"
       onClick={() => navigate(`/production-cycles/${cycle.id}`)}
     >
       <div className="flex items-start justify-between mb-6 relative z-10">
         <div className="flex items-center gap-3">
           <div className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center transition-transform transition-shadow transition-[width] transition-[height] duration-300 group-hover:scale-110 shadow-lg',
+            'w-10 h-10 rounded-xl flex items-center justify-center transition-[transform,box-shadow,width,height] duration-300 group-hover:scale-110 shadow-lg',
             isActive ? 'bg-amber-500/10 border border-amber-500/20 text-amber-500' : 'bg-muted/30 border border-border/50 text-muted-foreground'
           )}>
             <Icon name="CycleIcon" size={20} />
@@ -97,7 +97,7 @@ function CycleCard({ cycle, farm, grower }: { cycle: ProductionCycle; farm: Farm
           </div>
           <div className="w-full h-1.5 bg-secondary/20 rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary rounded-full transition-colors transition-shadow transition-[width] transition-[height] duration-1000 shadow-[0_0_8px_var(--primary)]"
+              className="h-full bg-primary rounded-full transition-[color,box-shadow,width,height] duration-1000 shadow-[0_0_8px_var(--primary)]"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -344,7 +344,7 @@ export default function ProductionCycles() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-1">
           <div className="flex items-center gap-3">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Production Cycles</h3>
-            <span className="px-2 py-0.5 rounded-[4px] text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase tabular-nums font-data">
+            <span className="px-2 py-0.5 rounded-lg text-micro font-bold bg-muted/50 text-muted-foreground border border-border/50 tracking-wide uppercase tabular-nums font-data">
               {filteredCycles.length} Total
             </span>
           </div>

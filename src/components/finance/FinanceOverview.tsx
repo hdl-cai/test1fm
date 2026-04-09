@@ -1,14 +1,31 @@
 import { useFinanceStore } from '@/stores/useFinanceStore';
-import { MetricCard, MetricChart } from '@/components/shared';
+import { usePayrollStore } from '@/stores/usePayrollStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { MetricCard } from '@/components/shared';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ActivityIcon, ArrowDown01Icon, ArrowUp01Icon } from '@/hooks/useIcon';
 import { Loader2 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend,
+  LineChart, Line,
+} from 'recharts';
+import { useState, useEffect } from 'react';
+import { fetchRevenueVsExpenses, fetchNetProfitPerCycle } from '@/lib/data/analytics';
+import type { RevenueExpensesPoint, NetProfitPoint } from '@/lib/data/analytics';
+import { CyclePnLTable } from '@/components/finance/CyclePnLTable';
 const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const TICK_STYLE = { fontSize: 10, fill: 'var(--muted-foreground)' };
+const TOOLTIP_STYLE = { backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 };
+
+function formatTooltipCurrency(value: number | string | undefined) {
+    return [`₱${Number(value ?? 0).toLocaleString()}`, ''];
+}
 
 export function FinanceOverview() {
+    const { user } = useAuthStore();
     const { 
         totalIncome, 
         totalExpenses, 
@@ -16,10 +33,22 @@ export function FinanceOverview() {
         isLoading, 
         getExpensesByCategory 
     } = useFinanceStore();
+    const { getPendingAdvances } = usePayrollStore();
     
+    const [revenueVsExpenses, setRevenueVsExpenses] = useState<RevenueExpensesPoint[]>([]);
+    const [netProfitPerCycle, setNetProfitPerCycle] = useState<NetProfitPoint[]>([]);
+
+    useEffect(() => {
+      if (!user?.orgId) return;
+      void fetchRevenueVsExpenses(user.orgId).then(setRevenueVsExpenses).catch(() => {});
+      void fetchNetProfitPerCycle(user.orgId).then(setNetProfitPerCycle).catch(() => {});
+    }, [user?.orgId]);
+
     const netProfit = totalIncome - totalExpenses;
     const expensesByCategory = getExpensesByCategory();
-    const recentTransactions = [...transactions].slice(0, 10);
+    const recentTransactions = [...transactions].slice(0, 20);
+    const pendingAdvances = getPendingAdvances();
+    const pendingAdvancesTotal = pendingAdvances.reduce((sum, a) => sum + a.amount, 0);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-PH', {
@@ -54,32 +83,16 @@ export function FinanceOverview() {
             icon: "ChartIcon" as const,
             iconColor: netProfit >= 0 ? "#10B981" : "#EF4444",
             trend: { value: "18.3%", direction: netProfit >= 0 ? 'up' as const : 'down' as const, label: "Current standing" }
+        },
+        {
+            title: "Pending Advances",
+            value: pendingAdvances.length > 0 ? formatCurrency(pendingAdvancesTotal) : "None",
+            subtitle: `${pendingAdvances.length} request${pendingAdvances.length !== 1 ? 's' : ''} awaiting review`,
+            icon: "CreditCardIcon" as const,
+            iconColor: pendingAdvances.length > 0 ? "#F59E0B" : "#6B7280",
+            trend: undefined
         }
     ];
-
-    // Chart Data preparation
-    const now = new Date();
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (29 - i));
-        return d.toISOString().split('T')[0];
-    });
-
-    const incomeTrendData = last30Days.map((dateStr, idx) => {
-        const dailyIncome = transactions
-            .filter(t => t.type === 'income' && t.date.toISOString().split('T')[0] === dateStr)
-            .reduce((sum, t) => sum + t.amount, 0);
-        const dailyExpense = transactions
-            .filter(t => (t.type === 'expense' || t.type === 'payroll') && t.date.toISOString().split('T')[0] === dateStr)
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        const displayDate = new Date(dateStr);
-        return {
-            name: displayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            income: dailyIncome || (idx * 1666),
-            expenses: dailyExpense || (idx * 1000),
-        };
-    });
 
     const expensePieData = Object.entries(expensesByCategory).map(([name, value], index) => ({
         name,
@@ -99,7 +112,7 @@ export function FinanceOverview() {
     return (
         <div className="space-y-6">
             {/* Stat Cards - Ensure distinct separation */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 {statCards.map((card, idx) => (
                     <MetricCard
                         key={idx}
@@ -117,17 +130,78 @@ export function FinanceOverview() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Left Column: Charts */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Revenue vs Expenses */}
-                    <MetricChart
-                        title="Revenue vs Expenses"
-                        subtitle="Financial performance trend over the last 30 days"
-                        data={incomeTrendData}
-                        series={[
-                            { key: 'income', name: 'Revenue', color: 'hsl(var(--chart-2))', unit: '₱' },
-                            { key: 'expenses', name: 'Expenses', color: 'hsl(var(--chart-3))', unit: '₱' },
-                        ]}
-                        height={360}
-                    />
+                    {/* Revenue vs Expenses — 12-month */}
+                    <Card className="bg-card border-border">
+                      <CardHeader className="p-6 pb-2">
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Revenue vs Expenses</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Monthly performance — last 12 months</p>
+                      </CardHeader>
+                      <CardContent className="p-6 pt-2">
+                        {revenueVsExpenses.length === 0 ? (
+                          <div className="h-[360px] flex items-center justify-center text-muted-foreground text-sm">No data yet — close a cycle to see trends.</div>
+                        ) : (
+                          <div className="h-[360px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={revenueVsExpenses}>
+                                <defs>
+                                  <linearGradient id="finRevGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.2} />
+                                    <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
+                                  </linearGradient>
+                                  <linearGradient id="finExpGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.2} />
+                                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis dataKey="month" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                                <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} tickFormatter={(v) => `₱${(v / 1000).toFixed(0)}k`} />
+                                <RechartsTooltip contentStyle={TOOLTIP_STYLE} formatter={formatTooltipCurrency} />
+                                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 16, fontSize: 10, textTransform: 'uppercase' }} />
+                                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--chart-2))" strokeWidth={2} fillOpacity={1} fill="url(#finRevGrad)" name="Revenue" />
+                                <Area type="monotone" dataKey="expenses" stroke="hsl(var(--destructive))" strokeWidth={2} fillOpacity={1} fill="url(#finExpGrad)" name="Expenses" />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Monthly P&L Trend */}
+                    <Card className="bg-card border-border">
+                      <CardHeader className="p-6 pb-2">
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Net Profit Trend</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Net profit per closed production cycle</p>
+                      </CardHeader>
+                      <CardContent className="p-6 pt-2">
+                        {netProfitPerCycle.length === 0 ? (
+                          <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">No closed cycles yet.</div>
+                        ) : (
+                          <div className="h-[240px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={netProfitPerCycle}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis dataKey="cycle_label" tick={TICK_STYLE} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                                <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} tickFormatter={(v) => `₱${(v / 1000).toFixed(0)}k`} />
+                                <RechartsTooltip contentStyle={TOOLTIP_STYLE} formatter={formatTooltipCurrency} />
+                                <Line type="monotone" dataKey="net_profit" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} name="Net Profit" />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Per-Cycle P&L Table */}
+                    <Card className="bg-card border-border">
+                      <CardHeader className="p-6 pb-2">
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Per-Cycle P&L</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Revenue, expenses, and net profit per closed production cycle</p>
+                      </CardHeader>
+                      <CardContent className="p-6 pt-2">
+                        <CyclePnLTable data={netProfitPerCycle} />
+                      </CardContent>
+                    </Card>
 
                     {/* Expense Breakdown - Now below Revenue vs Expenses */}
                     <Card className="bg-card border-border flex flex-col">
@@ -188,7 +262,7 @@ export function FinanceOverview() {
 
                 {/* Right Column: Recent Activity - Spans full height of the two charts */}
                 <Card className="bg-card border-border overflow-hidden lg:h-[calc(100%-0px)] flex flex-col">
-                    <CardHeader className="p-6 border-b border-border/50 bg-white/[0.01] shrink-0">
+                    <CardHeader className="p-6 border-b border-border/50 bg-white/1 shrink-0">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-primary">
                                 <ActivityIcon size={18} />
@@ -200,7 +274,7 @@ export function FinanceOverview() {
                         </div>
                     </CardHeader>
                     <CardContent className="p-0 flex-1 overflow-hidden">
-                        <ScrollArea className="h-full max-h-[750px] lg:max-h-[850px]">
+                        <ScrollArea className="h-full max-h-187.5 lg:max-h-212.5">
                             <div className="divide-y divide-border/30">
                                 {recentTransactions.map((tx, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors group">

@@ -13,7 +13,7 @@ import { Icon } from '@/hooks/useIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertsPopover } from './AlertsPopover';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface TopBarProps {
   title?: string;
@@ -80,8 +80,8 @@ export function TopBar({ title }: TopBarProps) {
             <Icon name="SearchIcon" size={20} />
           </Button>
 
-          {/* Notifications / Alerts Popover */}
-          <AlertsPopover />
+          {/* Notifications Bell */}
+          <NotificationBell />
 
           {/* Theme Toggle */}
           <Button

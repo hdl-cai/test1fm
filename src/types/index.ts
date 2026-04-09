@@ -23,6 +23,7 @@ export interface Farm {
   name: string;
   region: string;
   status: 'active' | 'empty' | 'maintenance';
+  sensorsEnabled?: boolean;
   capacity: number;
   currentBirdCount: number;
   activeCycles: number;
@@ -35,6 +36,9 @@ export interface Farm {
 
 export interface Sensor {
   id: string;
+  nodeId?: string;
+  metricId?: string;
+  nodeIdCode?: string;
   farmId: string;
   location: string;
   type: 'temperature' | 'humidity' | 'ammonia';
@@ -43,6 +47,10 @@ export interface Sensor {
   battery: number;
   status: 'online' | 'offline' | 'alert';
   firmwareVersion: string;
+  isActive?: boolean;
+  thresholdMin?: number | null;
+  thresholdMax?: number | null;
+  alertMessage?: string | null;
   lastReading?: Date;
 }
 
@@ -235,12 +243,21 @@ export interface Alert {
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'alert' | 'system' | 'reminder';
+  orgId: string;
+  recipientId: string;
+  type: string;
+  eventType: string | null;
+  urgency: 'critical' | 'warning' | 'info' | null;
   title: string;
   message: string;
-  read: boolean;
+  link: string | null;
+  isRead: boolean;
+  isArchived: boolean;
+  farmId: string | null;
+  cycleId: string | null;
+  readAt: Date | null;
+  expiresAt: Date | null;
   createdAt: Date;
-  link?: string;
 }
 
 // ============================================================================
@@ -316,5 +333,7 @@ export type NavSection =
   | 'health'
   | 'finance'
   | 'performance'
+  | 'analytics'
   | 'personnel'
-  | 'settings';
+  | 'settings'
+  | 'notifications';

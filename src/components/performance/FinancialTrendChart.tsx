@@ -13,7 +13,7 @@ export function FinancialTrendChart({ className }: FinancialTrendChartProps) {
         <div className={cn("bg-card border border-border rounded-xl shadow-sm overflow-hidden", className)}>
             <div className="p-6">
                 <h3 className="text-lg font-bold text-foreground mb-6">Financial Performance Trend</h3>
-                <div className="h-[300px] w-full">
+                <div className="h-75 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={financialHistory}>
                             <defs>

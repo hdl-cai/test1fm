@@ -42,6 +42,13 @@ export interface DashboardData {
   chartData: ChartData[];
   pendingApprovals: PendingApproval[];
   flockSummary: FlockSummaryItem[];
+  latestMarketPrice: {
+    farmgate: number;
+    carcass: number | null;
+    srp: number | null;
+    region: string;
+    date: string;
+  } | null;
 }
 
 export async function fetchDashboardData(orgId: string): Promise<DashboardData> {
@@ -177,11 +184,40 @@ export async function fetchDashboardData(orgId: string): Promise<DashboardData> 
       fcr: 1.65 + Math.random() * 0.1,
     }));
 
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('region')
+      .eq('id', resolvedOrgId)
+      .single();
+
+    let latestMarketPrice = null;
+    if (org?.region) {
+      const { data: marketData, error: marketError } = await supabase
+        .from('market_prices')
+        .select('farmgate_price_per_kg, price_per_kg_carcass, srp_price, region, price_date')
+        .eq('org_id', resolvedOrgId)
+        .eq('region', org.region)
+        .order('price_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!marketError && marketData) {
+        latestMarketPrice = {
+          farmgate: marketData.farmgate_price_per_kg,
+          carcass: marketData.price_per_kg_carcass ?? null,
+          srp: marketData.srp_price,
+          region: marketData.region,
+          date: marketData.price_date
+        };
+      }
+    }
+
     return {
       stats,
       chartData,
       pendingApprovals,
       flockSummary,
+      latestMarketPrice,
     };
   } catch (error) {
     throw toDataLayerError(error, 'Failed to fetch dashboard data.', 'dashboard.fetchDashboardData');
