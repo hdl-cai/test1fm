@@ -5,6 +5,7 @@
 // POST body: { recipientId: string, title: string, message: string, link?: string }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3.6.7';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -16,13 +17,15 @@ const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@flockmate.a
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // VAPID keys are required for push
+  // VAPID keys are required for authenticated Web Push delivery.
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     return new Response(
       JSON.stringify({ error: 'VAPID keys not configured' }),
       { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
   try {
     const { recipientId, title, message, link } = await req.json();
@@ -51,40 +54,44 @@ Deno.serve(async (req: Request) => {
 
     const payload = JSON.stringify({ title, body: message, url: link ?? '/' });
 
-    // Send push to each registered device
-    // Note: Full VAPID JWT signing requires a crypto implementation.
-    // This is a placeholder that logs the intent. In production, use
-    // a VAPID-capable library or a service like web-push.
+    // Send push to each registered device with encrypted payload + VAPID auth.
     let sent = 0;
     for (const sub of subscriptions) {
       try {
-        // Build minimal push request (browser endpoint handles VAPID auth on supporting platforms)
-        const pushRes = await fetch(sub.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'TTL': '86400',
-            'X-VAPID-Subject': VAPID_SUBJECT,
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: {
+              p256dh: sub.p256dh,
+              auth: sub.auth,
+            },
           },
-          body: payload,
-        });
+          payload,
+          {
+            TTL: 86400,
+            urgency: 'normal',
+            contentEncoding: 'aes128gcm',
+          }
+        );
 
-        if (pushRes.ok || pushRes.status === 201) {
-          sent++;
-          // Update last_used_at
-          await supabase
-            .from('push_subscriptions')
-            .update({ last_used_at: new Date().toISOString() })
-            .eq('endpoint', sub.endpoint);
-        } else if (pushRes.status === 410 || pushRes.status === 404) {
+        sent++;
+
+        // Update last_used_at after successful delivery to the push service.
+        await supabase
+          .from('push_subscriptions')
+          .update({ last_used_at: new Date().toISOString() })
+          .eq('endpoint', sub.endpoint);
+      } catch (err) {
+        const statusCode = (err as { statusCode?: number })?.statusCode;
+
+        if (statusCode === 410 || statusCode === 404) {
           // Subscription expired — remove it
           await supabase
             .from('push_subscriptions')
             .delete()
             .eq('endpoint', sub.endpoint);
         }
-      } catch {
-        // Individual push failure doesn't abort the whole batch
+        // Individual push failure doesn't abort the whole batch.
       }
     }
 

@@ -57,6 +57,7 @@ Deno.serve(async (req: Request) => {
         .eq('org_id', stock.org_id)
         .eq('event_type', 'feed_stock_low_projected')
         .gte('created_at', `${todayPHT}T00:00:00+08:00`)
+        .eq('farm_id', stock.farm_id)
         .like('link', `%${stock.item_id}%`);
 
       if ((existingCount ?? 0) > 0) continue;
