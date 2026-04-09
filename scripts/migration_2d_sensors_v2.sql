@@ -57,7 +57,7 @@ CREATE POLICY "sensor_readings_select_role" ON sensor_readings
     AND (
       EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'owner', 'technician'))
       OR farm_id IN (
-        SELECT farm_id FROM farm_personnel WHERE profile_id = auth.uid()
+        SELECT farm_id FROM farm_assignments WHERE user_id = auth.uid()
       )
     )
   );
