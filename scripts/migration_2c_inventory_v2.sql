@@ -73,10 +73,12 @@ BEGIN
     AND LOWER(c.name) = 'feed';
 
   -- Average daily feed consumption from last 7 daily_logs
-  SELECT COALESCE(AVG(dl.total_feed_consumed_kg), 0) INTO v_avg_daily_feed_kg
+  -- daily_logs does not have farm_id; scope farm via production_cycles
+  SELECT COALESCE(AVG(dl.feed_used_kg), 0) INTO v_avg_daily_feed_kg
   FROM daily_logs dl
+  JOIN production_cycles pc ON pc.id = dl.cycle_id
   WHERE dl.org_id = p_org_id
-    AND dl.farm_id = p_farm_id
+    AND pc.farm_id = p_farm_id
     AND dl.log_date >= CURRENT_DATE - INTERVAL '7 days';
 
   IF v_avg_daily_feed_kg <= 0 THEN
