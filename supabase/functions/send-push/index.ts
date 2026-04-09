@@ -5,7 +5,7 @@
 // POST body: { recipientId: string, title: string, message: string, link?: string }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import webpush from 'npm:web-push@3.6.7';
+import webpush from 'https://esm.sh/web-push@3.6.7';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -14,15 +14,18 @@ const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@flockmate.app';
 
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // VAPID keys are required for authenticated Web Push delivery.
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    return new Response(
-      JSON.stringify({ error: 'VAPID keys not configured' }),
-      { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -39,7 +42,6 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Fetch all push subscriptions for this user
     const { data: subscriptions, error } = await supabase
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')
@@ -54,7 +56,6 @@ Deno.serve(async (req: Request) => {
 
     const payload = JSON.stringify({ title, body: message, url: link ?? '/' });
 
-    // Send push to each registered device with encrypted payload + VAPID auth.
     let sent = 0;
     for (const sub of subscriptions) {
       try {
@@ -67,31 +68,24 @@ Deno.serve(async (req: Request) => {
             },
           },
           payload,
-          {
-            TTL: 86400,
-            urgency: 'normal',
-            contentEncoding: 'aes128gcm',
-          }
+          { TTL: 60 * 60 * 24 }
         );
 
         sent++;
 
-        // Update last_used_at after successful delivery to the push service.
         await supabase
           .from('push_subscriptions')
           .update({ last_used_at: new Date().toISOString() })
           .eq('endpoint', sub.endpoint);
-      } catch (err) {
-        const statusCode = (err as { statusCode?: number })?.statusCode;
+      } catch (pushErr) {
+        const statusCode =
+          typeof pushErr === 'object' && pushErr !== null && 'statusCode' in pushErr
+            ? Number((pushErr as { statusCode?: unknown }).statusCode)
+            : undefined;
 
-        if (statusCode === 410 || statusCode === 404) {
-          // Subscription expired — remove it
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('endpoint', sub.endpoint);
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
         }
-        // Individual push failure doesn't abort the whole batch.
       }
     }
 
