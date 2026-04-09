@@ -28,6 +28,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
   try {
     const { recipientId, title, message, link } = await req.json();
 
